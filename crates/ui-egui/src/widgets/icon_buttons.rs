@@ -81,6 +81,44 @@ fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId
     resp
 }
 
+/// Label size of [`chrome_button`].
+const CHROME_BUTTON_PT: f32 = 12.5;
+
+/// Width [`chrome_button`] takes for `label` (OmaGrid's `small_button` metrics).
+pub fn chrome_button_width(ui: &Ui, label: &str, show_text: bool, marker: bool) -> f32 {
+    let text_w = if show_text {
+        ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), regular(CHROME_BUTTON_PT), Color32::PLACEHOLDER).size().x) + 6.0
+    } else {
+        0.0
+    };
+    24.0 + text_w + if marker { 12.0 } else { 0.0 }
+}
+
+/// A plain small chrome button (Share, Editing, Comments, Discord): 16 px icon, optional 12.5 pt
+/// label and drop-down marker, and only a hover / pressed fill — no frame and no accent fill, as
+/// OmaGrid's `small_button` (OmaCraft ui-consistency spec, Accent). `label` is the accessible name.
+pub fn chrome_button(ui: &mut Ui, icon: &str, label: &str, show_text: bool, marker: bool) -> Response {
+    let t = Tokens::get(ui.ctx());
+    let w = chrome_button_width(ui, label, show_text, marker);
+    let (r, resp) = ui.allocate_exact_size(vec2(w, 23.0), Sense::click());
+    let enabled = ui.is_enabled();
+    if enabled && resp.is_pointer_button_down_on() {
+        ui.painter().rect_filled(r, CornerRadius::same(4), t.pressed);
+    } else if enabled && resp.hovered() {
+        ui.painter().rect_filled(r, CornerRadius::same(4), t.hover);
+    }
+    let (c, a, text) = if enabled { (t.icon, t.accent, t.text) } else { (t.text_disabled, t.text_disabled, t.text_disabled) };
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 12.0, r.center().y), vec2(16.0, 16.0)), icon, c, a);
+    if show_text {
+        ui.painter().text(pos2(r.min.x + 24.0, r.center().y), egui::Align2::LEFT_CENTER, label, regular(CHROME_BUTTON_PT), text);
+    }
+    if marker {
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.max.x - 7.0, r.center().y + 1.0), vec2(DROPDOWN, DROPDOWN)), "dropdown", c, c);
+    }
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, label));
+    resp
+}
+
 /// A drop-down menu item with `icon` before `text`, at least `min_w` wide.
 pub fn icon_menu_item(ui: &mut Ui, icon: &str, text: &str, shortcut: &str, min_w: f32) -> Response {
     let t = Tokens::get(ui.ctx());

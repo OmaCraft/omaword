@@ -4,7 +4,7 @@ use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::{PartKind, StoryRef};
 
-use crate::theme::{Tokens, TypeRung, fit_text, medium, paint_text, regular, semibold, text_width};
+use crate::theme::{Tokens, TypeRung, bold, fit_text, paint_text, regular, semibold, text_width};
 use crate::{WordApp, icons};
 
 /// Why the caret's language isn't spell-checked (dictionary unreadable or missing), if it isn't.
@@ -29,9 +29,9 @@ pub(crate) fn qat_button_id(id: &str) -> egui::Id {
     egui::Id::unique(("qat_button", id))
 }
 
-fn qat_button(ui: &mut Ui, app: &mut WordApp, icon: &str, tip: &str, id: &str, enabled: bool) -> egui::Response {
+fn qat_button(ui: &mut Ui, app: &mut WordApp, icon: &str, tip: &str, id: &str, enabled: bool, h: f32) -> egui::Response {
     let t = Tokens::get(ui.ctx());
-    let (r, _) = ui.allocate_exact_size(vec2(26.0, 24.0), Sense::hover());
+    let (r, _) = ui.allocate_exact_size(vec2(26.0, h), Sense::hover());
     let resp = ui.interact(r, qat_button_id(id), Sense::click());
     if resp.hovered() && enabled {
         ui.painter().rect_filled(r, 4.0, t.hover);
@@ -61,8 +61,9 @@ pub(crate) fn qat_enabled(app: &WordApp, id: &str) -> bool {
 }
 
 /// The Quick Access Toolbar (#379): the user's commands (Save, Undo, Redo until customized), each
-/// with a right-click menu, then the menu button that customizes it (#376).
-fn quick_access(ui: &mut Ui, app: &mut WordApp) {
+/// with a right-click menu, then the menu button that customizes it (#376). `h` is the buttons'
+/// height.
+fn quick_access(ui: &mut Ui, app: &mut WordApp, h: f32) {
     let ids: Vec<String> = app.session.ribbon.qat().into_iter().map(str::to_string).collect();
     for (index, id) in ids.iter().enumerate() {
         let id = id.as_str();
@@ -73,7 +74,7 @@ fn quick_access(ui: &mut Ui, app: &mut WordApp) {
             _ => app.session.registry.get(id).map(|s| tl!(s.label).to_string()).unwrap_or_default(),
         };
         let enabled = qat_enabled(app, id);
-        let resp = qat_button(ui, app, crate::widgets::command_icon(id), &tip, id, enabled);
+        let resp = qat_button(ui, app, crate::widgets::command_icon(id), &tip, id, enabled, h);
         if app.ui.keytips == crate::keytips::Phase::Tabs && ui.is_rect_visible(resp.rect) {
             let label = crate::keytips::qat_label(index, ids.len());
             if label.starts_with(&app.ui.keytip_prefix) {
@@ -82,11 +83,11 @@ fn quick_access(ui: &mut Ui, app: &mut WordApp) {
         }
         crate::widgets::command_menu(&resp, app, id);
         if id == "edit.undo" {
-            undo_list_button(ui, app, enabled);
+            undo_list_button(ui, app, enabled, h);
         }
     }
     let t = Tokens::get(ui.ctx());
-    let (r, _) = ui.allocate_exact_size(vec2(26.0, 24.0), Sense::hover());
+    let (r, _) = ui.allocate_exact_size(vec2(26.0, h), Sense::hover());
     let resp = ui.interact(r, qat_menu_button_id(), Sense::click());
     if resp.hovered() {
         ui.painter().rect_filled(r, 4.0, t.hover);
@@ -134,9 +135,9 @@ pub(crate) fn undo_list_footer(n: usize) -> String {
 }
 
 /// The small arrow beside Undo: opens the list of steps to undo several at once.
-fn undo_list_button(ui: &mut Ui, app: &mut WordApp, enabled: bool) {
+fn undo_list_button(ui: &mut Ui, app: &mut WordApp, enabled: bool, h: f32) {
     let t = Tokens::get(ui.ctx());
-    let (r, _) = ui.allocate_exact_size(vec2(12.0, 24.0), Sense::hover());
+    let (r, _) = ui.allocate_exact_size(vec2(12.0, h), Sense::hover());
     let resp = ui.interact(r, undo_list_button_id(), if enabled { Sense::click() } else { Sense::hover() });
     if resp.hovered() && enabled {
         ui.painter().rect_filled(r, 4.0, t.hover);
@@ -311,7 +312,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 // The text is part of the switch (#3370): clicking it toggles AutoSave, and chrome
                 // text is not document text to select (double-clicking it copied "AutoSave").
                 let text = ui.add(
-                    egui::Label::new(egui::RichText::new(tl!("AutoSave")).font(regular(11.5)).color(color)).selectable(false).sense(Sense::click()),
+                    egui::Label::new(egui::RichText::new(tl!("AutoSave")).font(regular(12.5)).color(color)).selectable(false).sense(Sense::click()),
                 );
                 let (r, resp) = ui.allocate_exact_size(vec2(30.0, 16.0), Sense::click());
                 let (fill, stroke, knob_fill) = match (&block, on) {
@@ -342,7 +343,8 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 ui.add_space(8.0);
                 // Hidden (#1945): neither the buttons nor the … menu; the title centres as before.
                 if app.ui.quick_access_toolbar {
-                    quick_access(ui, app);
+                    // The title-bar control height off macOS; macOS keeps its 24 pt buttons.
+                    quick_access(ui, app, if mac { 24.0 } else { control_h });
                 }
                 qat_end = ui.min_rect().max.x;
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -351,22 +353,14 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     ui.painter().circle_filled(r.center(), control_h / 2.0 - 1.0, t.accent);
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Account")));
                     let initials: String = app.session.user_initials().chars().take(2).collect();
-                    ui.painter().text(r.center(), Align2::CENTER_CENTER, initials, semibold(10.5), t.on_accent);
+                    ui.painter().text(r.center(), Align2::CENTER_CENTER, initials, bold(10.5), t.on_accent);
                     if resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author)).clicked() {
                         let _ = app.run("ui.backstage", json!({"value": true, "page": "options", "pane": "general"}));
                     }
                     ui.add_space(8.0);
                     if app.ui.show_discord {
-                        let (r, resp) = ui.allocate_exact_size(vec2(84.0, 22.0), Sense::click());
-                        ui.painter().rect_filled(r, 11.0, if resp.hovered() { t.accent_text } else { t.accent });
-                        icons::paint(
-                            ui.painter(),
-                            Rect::from_center_size(pos2(r.min.x + 13.0, r.center().y), vec2(14.0, 14.0)),
-                            "discord",
-                            t.on_accent,
-                            t.on_accent,
-                        );
-                        ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, tl!("Discord"), medium(11.5), t.on_accent);
+                        // A plain small button, not an accent pill (ui-consistency spec, Accent).
+                        let resp = crate::widgets::chrome_button(ui, "discord", tl!("Discord"), true, false);
                         if resp.on_hover_text(tl!("Join the ArtCraft community on Discord")).clicked() {
                             let _ = app.run("ui.discord", json!({}));
                         }
@@ -393,7 +387,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     }
                 )
             };
-            let font = TypeRung::Chrome.semibold();
+            let font = TypeRung::Chrome.bold();
             let track = TypeRung::Chrome.tracking();
             let cx = full.center().x;
             let available = 2.0 * (cx - qat_end - 10.0).min(right_start - 10.0 - cx);
@@ -693,7 +687,7 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                     }
                     ui.add_space(8.0);
                     let focus = tl!("Focus");
-                    let focus_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(focus.to_string(), regular(11.5), t.text_dim).size().x);
+                    let focus_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(focus.to_string(), TypeRung::Caption.regular(), t.text_dim).size().x);
                     let (r, resp) = ui.allocate_exact_size(vec2((focus_w + 26.0).max(56.0), 20.0), Sense::click());
                     // The Focus button is the last of the controls, so it is the leftmost one: the
                     // message has to stop before it (#2402).

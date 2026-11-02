@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::colors::{Remember, Target};
 use crate::options::MeasureExt;
-use crate::theme::{Tokens, medium, regular, semibold};
+use crate::theme::{Tokens, bold, regular};
 use crate::widgets::{CONTENT_H, LABEL_H, big, big_toggle, group, menu_button, small, split};
 use crate::{WordApp, icons};
 
@@ -73,6 +73,14 @@ pub use tabs::{
 use underline::{UNDERLINE_STYLES, underline_menu};
 use view::{outlining, view};
 
+/// Height of the tab strip row (OmaCraft ui-consistency spec); each tab is 30 pt high in it.
+const TAB_ROW_H: f32 = 34.0;
+
+/// A tab label's font: UI regular 13.5, bold for the active tab (OmaGrid's tab strip).
+fn tab_font(active: bool) -> egui::FontId {
+    if active { bold(13.5) } else { regular(13.5) }
+}
+
 /// Draws the Read toolbar or the full ribbon, switching to and from the contextual Equation and
 /// Outlining tabs and showing the available tab strip.
 pub fn show(app: &mut WordApp, ui: &mut Ui) {
@@ -124,10 +132,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             app.ui.tab = next.to_string();
         }
     }
-    // Tab strip.
+    // Tab strip (OmaCraft ui-consistency spec, OmaGrid's metrics): a 34 pt row whose 30 pt tabs
+    // sit 1 pt below its top, inset 10 + 8 from the window edge.
     egui::Panel::top("tabs")
-        .exact_size(30.0)
-        .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 8, right: 10, top: 0, bottom: 0 }))
+        .exact_size(TAB_ROW_H)
+        .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 18, right: 10, top: 1, bottom: 3 }))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
@@ -136,14 +145,12 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 let share = tl!("Share");
                 let editing_label = if app.session.doc.settings.track_changes { tl!("Reviewing") } else { tl!("Editing") };
                 let comments = tl!("Comments");
-                let share_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(share.to_string(), medium(12.0), t.text).size().x);
                 let spaced = |w: f32| w + 2.0;
                 let button_widths = |level: usize| -> f32 {
                     let labels = level == 0;
-                    let share_full = (share_w + 36.0).max(74.0);
-                    let share_button = if level < 2 { share_full } else { 30.0 };
-                    let editing = crate::widgets::icon_text_button_width(ui, editing_label, regular(12.0), true, labels);
-                    let comment = crate::widgets::icon_text_button_width(ui, comments, regular(12.0), false, labels);
+                    let share_button = crate::widgets::chrome_button_width(ui, share, level < 2, false);
+                    let editing = crate::widgets::chrome_button_width(ui, editing_label, labels, true);
+                    let comment = crate::widgets::chrome_button_width(ui, comments, labels, false);
                     // The gaps (6 + 4 + 8) and the strip's margin.
                     spaced(share_button) + spaced(editing) + spaced(comment) + 18.0 + 12.0
                 };
@@ -153,7 +160,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     .iter()
                     .zip(&labels)
                     .map(|((tab, custom), shown)| TabSpec {
-                        text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), medium(12.5), t.text).size().x),
+                        text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), tab_font(*tab == app.ui.tab), t.text).size().x),
                         file: tab == "File",
                         active: *tab == app.ui.tab,
                         contextual: !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab.as_str()),
@@ -166,32 +173,15 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     // tabs took clicks that did nothing, so the empty window had no way back to
                     // the Start screen (#3045).
                     ui.add_enabled_ui(app.has_document(), |ui| {
-                        let (share_size, share_text) =
-                            if plan.buttons < 2 { (((share_w + 36.0).max(74.0), 24.0), true) } else { ((30.0, 24.0), false) };
-                        let (r, resp) = ui.allocate_exact_size(vec2(share_size.0, share_size.1), Sense::click());
-                        ui.painter().rect_filled(r, 4.0, if resp.hovered() { t.accent_text } else { t.accent });
-                        let icon_x = if share_text { r.min.x + 14.0 } else { r.center().x };
-                        icons::paint(
-                            ui.painter(),
-                            Rect::from_center_size(pos2(icon_x, r.center().y), vec2(14.0, 14.0)),
-                            "share",
-                            t.on_accent,
-                            t.on_accent,
-                        );
-                        if share_text {
-                            ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, share, medium(12.0), t.on_accent);
-                        }
-                        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, share));
+                        // A plain small button, not an accent-filled pill (ui-consistency spec, Accent).
+                        let resp = crate::widgets::chrome_button(ui, "share", share, plan.buttons < 2, false);
                         if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
                             let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
                         }
                         ui.add_space(6.0);
                         let track = app.session.doc.settings.track_changes;
-                        let mode = if plan.buttons == 0 {
-                            crate::widgets::icon_text_menu_button(ui, "pencil", editing_label, regular(12.0))
-                        } else {
-                            crate::widgets::icon_only_button(ui, "pencil", editing_label, regular(12.0), true)
-                        };
+                        let mode = crate::widgets::chrome_button(ui, "pencil", editing_label, plan.buttons == 0, true);
+                        let mode = if plan.buttons == 0 { mode } else { mode.on_hover_text(editing_label) };
                         egui::Popup::menu(&mode).show(|ui| {
                             if ui.selectable_label(!track, tl!(tl!("Editing — edit the document directly"))).clicked() {
                                 let _ = app.run("review.trackChanges", json!({"value": false}));
@@ -203,11 +193,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                             }
                         });
                         ui.add_space(4.0);
-                        let comments_button = if plan.buttons == 0 {
-                            crate::widgets::icon_text_button(ui, "comment", comments, regular(12.0))
-                        } else {
-                            crate::widgets::icon_only_button(ui, "comment", comments, regular(12.0), false)
-                        };
+                        let comments_button = crate::widgets::chrome_button(ui, "comment", comments, plan.buttons == 0, false);
+                        let comments_button = if plan.buttons == 0 { comments_button } else { comments_button.on_hover_text(comments) };
                         if comments_button.clicked() {
                             let _ = app.run("view.commentsPane", json!({}));
                         }
@@ -232,14 +219,21 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                             let active = app.ui.tab == tab && !app.ui.backstage;
                             resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, active, shown));
                             if resp.hovered() && !active {
-                                ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, t.hover);
+                                ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
                             }
-                            let color = if contextual || active { t.accent_text } else { t.text };
+                            // File and contextual tabs in the accent's text colour, the active tab
+                            // bold in `text`, the others regular in `text_dim` (OmaGrid).
+                            let color = if tab == "File" || contextual {
+                                t.accent_text
+                            } else if active {
+                                t.text
+                            } else {
+                                t.text_dim
+                            };
+                            let font = tab_font(active);
                             if cut {
-                                let mut job = egui::text::LayoutJob::single_section(
-                                    shown.to_string(),
-                                    egui::text::TextFormat::simple(if active { semibold(12.5) } else { medium(12.5) }, color),
-                                );
+                                let mut job =
+                                    egui::text::LayoutJob::single_section(shown.to_string(), egui::text::TextFormat::simple(font.clone(), color));
                                 job.wrap = egui::text::TextWrapping {
                                     max_width: (w - plan.pad).max(1.0),
                                     max_rows: 1,
@@ -249,18 +243,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 let galley = ui.painter().layout_job(job);
                                 ui.painter().galley(r.center() - galley.size() / 2.0, galley, color);
                             } else {
-                                ui.painter().text(
-                                    r.center(),
-                                    Align2::CENTER_CENTER,
-                                    shown,
-                                    if active { semibold(12.5) } else { medium(12.5) },
-                                    color,
-                                );
+                                ui.painter().text(r.center(), Align2::CENTER_CENTER, shown, font, color);
                             }
                             let resp = if cut { resp.on_hover_text(shown) } else { resp };
                             if active {
-                                let u = Rect::from_center_size(pos2(r.center().x, r.max.y - 2.0), vec2(w - 16.0, 3.0));
-                                ui.painter().rect_filled(u, 2.0, t.accent);
+                                // OmaGrid's underline: as wide as the label, kept within 20–40 pt.
+                                let label_w = specs.get(i).map_or(w - plan.pad, |sp| sp.text_w.min(w - plan.pad));
+                                let u = Rect::from_center_size(pos2(r.center().x, r.max.y - 3.0), vec2(label_w.clamp(20.0, 40.0), 3.0));
+                                ui.painter().rect_filled(u, 1.5, t.accent);
                             }
                             if resp.clicked() {
                                 let _ = app.run("ui.tab", json!({"tab": tab}));
@@ -280,7 +270,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         if !left_out.is_empty() {
                             let (r, resp) = ui.allocate_exact_size(vec2(MORE_TABS_W, 30.0), Sense::click());
                             if resp.hovered() {
-                                ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, t.hover);
+                                ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
                             }
                             // The active tab is in the menu: the button says so.
                             let holds_active = left_out.iter().any(|(tab, _)| *tab == app.ui.tab);
@@ -288,8 +278,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 r.center(),
                                 Align2::CENTER_CENTER,
                                 "»",
-                                medium(12.5),
-                                if holds_active { t.accent_text } else { t.text },
+                                tab_font(false),
+                                if holds_active { t.accent_text } else { t.text_dim },
                             );
                             // "»" means nothing read aloud: the button says what it holds.
                             let more = tl!("More tabs");
@@ -317,6 +307,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 4 }).stroke(Stroke::new(1.0, t.border)),
         )
         .show(ui, |ui| {
+            // Inline labels, fields and check boxes in the ribbon body are 12.5 pt (OmaCraft
+            // ui-consistency spec), not the 13 pt Body of dialogs and menus.
+            for style in [egui::TextStyle::Body, egui::TextStyle::Button] {
+                ui.style_mut().text_styles.insert(style, regular(12.5));
+            }
             // Right-click on the ribbon (outside a button): Customize Ribbon. Registered first, so
             // the buttons drawn over it keep their own clicks.
             // No document open (#1129): every command is greyed out but Help's.

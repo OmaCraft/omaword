@@ -10,7 +10,7 @@ use wordcraft_doc::math::parse_linear;
 use wordcraft_engine::math_gallery::{BUILT_INS, STRUCTURES, SYMBOL_SETS, Template};
 
 use crate::WordApp;
-use crate::theme::{Tokens, regular, semibold};
+use crate::theme::{Tokens, bold, regular};
 use crate::widgets::{BIG_ICON_Y, BIG_LABEL_Y, CONTENT_H, LABEL_PITCH, group, small};
 
 /// What each structure button shows.
@@ -151,7 +151,7 @@ fn section_heading(ui: &mut Ui, name: &str) {
     let t = Tokens::get(ui.ctx());
     let (r, _) = ui.allocate_exact_size(vec2(ui.available_width().max(240.0), 20.0), Sense::hover());
     ui.painter().rect_filled(r, 0.0, t.hover);
-    ui.painter().text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, tl!(name), semibold(11.5), t.text);
+    ui.painter().text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, tl!(name), bold(11.5), t.text);
 }
 
 /// A structure gallery's menu.
@@ -185,7 +185,7 @@ pub fn builtin_menu(ui: &mut Ui, app: &mut WordApp) {
         section_heading(ui, "Built-In");
         for (id, label, lin) in BUILT_INS {
             let t = Tokens::get(ui.ctx());
-            ui.label(egui::RichText::new(tl!(label)).font(semibold(11.5)).color(t.text));
+            ui.label(egui::RichText::new(tl!(label)).font(bold(11.5)).color(t.text));
             let (r, resp) = ui.allocate_exact_size(vec2(350.0, 64.0), Sense::click());
             ui.painter().rect_filled(r, 2.0, t.input);
             if resp.hovered() {

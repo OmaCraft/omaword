@@ -8,7 +8,8 @@
 //! `{"steps": n}` to run extra frames, or `{"wait": ms}` to keep running frames for a while (for
 //! background work such as a Zotero session). The window is 1440×900 pt at 2× and opens the sample
 //! document unless the first line is `{"empty": true}`; `{"empty": true, "startScreen": true}`
-//! starts the way the desktop app does with nothing to open (File › Home, #766).
+//! starts the way the desktop app does with nothing to open (File › Home, #766). A
+//! `{"linuxTitlebar": true}` line draws the Linux/Windows title bar instead of the macOS one.
 
 use wordcraft_engine::Session;
 use wordcraft_ui_egui::{ControlRequest, Services, WordApp};
@@ -27,7 +28,7 @@ fn main() {
         wordcraft_engine::sample::sample_document()
     };
     let mut app = WordApp::new(Session::new(doc), Services::default()).with_control(rx);
-    app.integrated_titlebar = true;
+    app.integrated_titlebar = !lines.iter().any(|l| l.get("linuxTitlebar").is_some());
     if lines.first().is_some_and(|l| l.get("startScreen").is_some()) {
         app.start_screen();
     }

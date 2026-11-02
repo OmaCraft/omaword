@@ -675,6 +675,11 @@ pub fn semibold(size: f32) -> FontId {
 pub fn regular(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("omaword-ui".into()))
 }
+/// The UI bold role of the OmaCraft chrome (title, active tab, headings): the Omarchy bold face
+/// when the desktop sets one, else the heaviest bundled interface face (Inter SemiBold).
+pub fn bold(size: f32) -> FontId {
+    semibold(size)
+}
 
 /// Original fallback roles for document comments and composition overlays.
 pub fn document_regular(size: f32) -> FontId {
@@ -688,11 +693,11 @@ pub fn document_semibold(size: f32) -> FontId {
 /// tightened, small text opened). Use these instead of raw `regular(size)`/`semibold(size)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TypeRung {
-    /// Tab strip, title bar, centred window title.
+    /// The centred document title in the title bar (drawn bold).
     Chrome,
-    /// Ribbon buttons, menus, dialogs.
+    /// Title-bar controls such as the search box.
     Control,
-    /// Group labels, status bar, tooltips.
+    /// Status bar text.
     Caption,
 }
 
@@ -700,18 +705,15 @@ impl TypeRung {
     /// Font size in points.
     pub fn size(self) -> f32 {
         match self {
-            TypeRung::Chrome => 12.5,
-            TypeRung::Control => 11.5,
-            TypeRung::Caption => 11.0,
+            TypeRung::Chrome => 13.0,
+            TypeRung::Control => 12.5,
+            TypeRung::Caption => 12.5,
         }
     }
-    /// Extra letter-spacing in points (em-relative, so it scales with the size).
+    /// Extra letter-spacing in points. The OmaCraft chrome draws every rung untracked, as OmaGrid
+    /// does (ui-consistency spec).
     pub fn tracking(self) -> f32 {
-        match self {
-            TypeRung::Chrome => -0.012 * self.size(),
-            TypeRung::Control => 0.0,
-            TypeRung::Caption => 0.018 * self.size(),
-        }
+        0.0
     }
     /// Line height in points; tighter leading as the text grows.
     pub fn line_height(self) -> f32 {
@@ -730,6 +732,9 @@ impl TypeRung {
     }
     pub fn semibold(self) -> FontId {
         semibold(self.size())
+    }
+    pub fn bold(self) -> FontId {
+        bold(self.size())
     }
 }
 
@@ -806,10 +811,12 @@ pub fn apply(ctx: &egui::Context, appearance: Appearance) {
         s.spacing.button_padding = egui::vec2(8.0, 3.0);
         s.spacing.interact_size = egui::vec2(24.0, 22.0);
         s.spacing.menu_margin = egui::Margin::same(6);
-        s.text_styles.insert(egui::TextStyle::Body, regular(12.5));
-        s.text_styles.insert(egui::TextStyle::Button, regular(12.5));
-        s.text_styles.insert(egui::TextStyle::Small, regular(10.5));
-        s.text_styles.insert(egui::TextStyle::Heading, semibold(17.0));
+        // OmaCraft chrome roles (omacraft docs/ui-consistency.md, OmaGrid is the reference).
+        s.text_styles.insert(egui::TextStyle::Body, regular(13.0));
+        s.text_styles.insert(egui::TextStyle::Button, regular(13.0));
+        s.text_styles.insert(egui::TextStyle::Small, regular(11.0));
+        s.text_styles.insert(egui::TextStyle::Heading, bold(18.0));
+        s.text_styles.insert(egui::TextStyle::Monospace, FontId::monospace(12.0));
         s.interaction.tooltip_delay = 0.45;
     });
     ctx.options_mut(|o| {

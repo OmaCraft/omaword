@@ -18,6 +18,10 @@ pub const LABEL_PITCH: f32 = 13.0;
 
 pub const LABEL_LINE_H: f32 = 14.0;
 
+/// Label size of small ribbon buttons and menu buttons (OmaCraft ui-consistency spec); large
+/// buttons keep `regular(11.5)`.
+const SMALL_LABEL_PT: f32 = 12.5;
+
 /// Whether a command exists and is enabled.
 pub fn enabled(app: &WordApp, id: &str) -> bool {
     // No document open (#1129): only what opens one, Help and the settings.
@@ -142,7 +146,8 @@ pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, ti
     // A compact group (#662) shows only the icon; the tooltip keeps the name.
     let label = label.filter(|_| !crate::ribbon_fit::compact(ui.ctx()));
     let t = Tokens::get(ui.ctx());
-    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
+    let text_w =
+        label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(SMALL_LABEL_PT), t.text).size().x) + 6.0).unwrap_or(0.0);
     let (r, resp) = ui.allocate_exact_size(vec2(24.0 + text_w, 22.0), Sense::click());
     keytip_badge(ui, r, id, tip);
     let on = enabled(app, id);
@@ -151,7 +156,13 @@ pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, ti
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
     if let Some(l) = label {
-        ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), if on { t.text } else { t.text_disabled });
+        ui.painter().text(
+            pos2(r.min.x + 24.0, r.center().y),
+            Align2::LEFT_CENTER,
+            l,
+            regular(SMALL_LABEL_PT),
+            if on { t.text } else { t.text_disabled },
+        );
     }
     let resp = tooltip(app, resp, tip, id);
     command_menu(&resp, app, id);
@@ -259,13 +270,14 @@ pub fn menu_button(ui: &mut Ui, app: &mut WordApp, options: MenuButtonOptions<'_
         }
         resp
     } else {
-        let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
+        let text_w =
+            label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(SMALL_LABEL_PT), t.text).size().x) + 6.0).unwrap_or(0.0);
         let (r, resp) = ui.allocate_exact_size(vec2(24.0 + text_w + 10.0, 22.0), Sense::click());
         keytip_badge(ui, r, "menu", tip);
         bg(ui, r, &resp, false, &t);
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 12.0, r.center().y), vec2(17.0, 17.0)), icon, c, a);
         if let Some(l) = label {
-            ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), text);
+            ui.painter().text(pos2(r.min.x + 24.0, r.center().y), Align2::LEFT_CENTER, l, regular(SMALL_LABEL_PT), text);
         }
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.max.x - 6.0, r.center().y), vec2(DROPDOWN, DROPDOWN)), "dropdown", c, c);
         resp

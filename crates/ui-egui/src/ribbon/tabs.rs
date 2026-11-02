@@ -1,4 +1,4 @@
-use super::{Stroke, Tokens, Ui, WordApp, json, semibold};
+use super::{Stroke, Tokens, Ui, WordApp, bold, json};
 
 pub const TABS: [&str; 13] = wordcraft_engine::ribbon::TABS;
 
@@ -22,7 +22,7 @@ pub(super) fn reading_toolbar(app: &mut WordApp, ui: &mut Ui, t: Tokens) {
         .frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin::symmetric(12, 6)).stroke(Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
-                ui.label(egui::RichText::new(tl!("Reading Mode")).font(semibold(14.0)));
+                ui.label(egui::RichText::new(tl!("Reading Mode")).font(bold(13.5)));
                 ui.separator();
                 let w = app.session.view.read_column_width;
                 let active = match w {
@@ -190,6 +190,9 @@ pub struct StripPlan {
     pub widths: Vec<f32>,
 }
 
+/// Room a tab adds to its label when the strip has space (OmaGrid: label + 22).
+pub(super) const TAB_PAD: f32 = 22.0;
+
 /// Smallest a tab label is cut down to before the tab goes into the » menu.
 pub(super) const MIN_TAB_W: f32 = 44.0;
 
@@ -199,7 +202,7 @@ pub(super) const MIN_TAB_W: f32 = 44.0;
 /// themselves. The buttons' room is always kept and File never leaves the strip. `buttons` is the
 /// width of the three buttons at each level (pure, tested).
 pub fn plan_strip(tabs: &[TabSpec], buttons: [f32; 3], avail: f32, more: f32) -> StripPlan {
-    const STEPS: [(f32, usize); 4] = [(18.0, 0), (10.0, 0), (10.0, 1), (10.0, 2)];
+    const STEPS: [(f32, usize); 4] = [(TAB_PAD, 0), (10.0, 0), (10.0, 1), (10.0, 2)];
     let widths_at = |pad: f32| -> Vec<f32> { tabs.iter().map(|t| t.text_w.max(0.0) + pad + 2.0).collect() };
     for (pad, level) in STEPS {
         let widths = widths_at(pad);

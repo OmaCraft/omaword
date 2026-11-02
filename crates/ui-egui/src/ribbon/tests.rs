@@ -510,7 +510,7 @@ fn plan_strip_gives_way_in_order() {
     let buttons = [200.0, 150.0, 60.0];
     // Plenty of room: nothing gives way.
     let p = plan_strip(&tabs, buttons, 600.0, 26.0);
-    assert_eq!((p.pad, p.buttons, p.fits.iter().all(|f| *f)), (18.0, 0, true));
+    assert_eq!((p.pad, p.buttons, p.fits.iter().all(|f| *f)), (22.0, 0, true));
     // Tighter: the padding goes first, then the Comments / Editing labels, then Share's.
     let p = plan_strip(&tabs, buttons, 380.0, 26.0);
     assert_eq!((p.pad, p.buttons), (10.0, 0));
