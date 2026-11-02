@@ -2,11 +2,8 @@ use super::groups::command_menu;
 use super::tooltip::{keytip_badge, shortcut_text, show_hint, tooltip, tooltip_lines};
 use super::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, Tokens, Ui, Value, WordApp, icons, pos2, regular, vec2};
 
-/// Height of the ribbon content area (without group labels).
+/// Height of a ribbon group's content area (groups have no caption row).
 pub const CONTENT_H: f32 = 66.0;
-
-/// Height of the group title row under the content.
-pub const LABEL_H: f32 = 18.0;
 
 /// Large buttons: centre of the 32 px icon, top of the first label line, and the pitch and
 /// height of a label line (`regular(11.5)`; a test checks the font's real line height).

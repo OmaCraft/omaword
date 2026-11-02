@@ -13,8 +13,8 @@ mod icon_buttons;
 mod tooltip;
 
 pub use buttons::{
-    BIG_ICON_Y, BIG_LABEL_Y, ButtonAction, CONTENT_H, DROPDOWN, LABEL_H, LABEL_LINE_H, LABEL_PITCH, MenuButtonOptions, big, big_toggle, enabled,
-    label_line, menu_button, menu_enabled, small, split,
+    BIG_ICON_Y, BIG_LABEL_Y, ButtonAction, CONTENT_H, DROPDOWN, LABEL_LINE_H, LABEL_PITCH, MenuButtonOptions, big, big_toggle, enabled, label_line,
+    menu_button, menu_enabled, small, split,
 };
 pub(crate) use buttons::{bg, run_from_ribbon};
 pub(crate) use combo::swatch;
@@ -24,24 +24,24 @@ pub use combo::{
 };
 #[cfg(test)]
 use combo::{Row, highlight_row, section_row, section_rows};
-pub use groups::{command_icon, command_menu, customize_menu_items, group, group_titled, row};
+pub use groups::{GROUP_BAND_H, command_icon, command_menu, customize_menu_items, group, group_titled, row};
 pub use icon_buttons::{
-    chrome_button, chrome_button_width, dialog_tabs, icon_button, icon_menu_item, icon_only_button, icon_text_button, icon_text_button_width,
-    icon_text_menu_button, primary_button,
+    CHROME_ICON_W, chrome_button, chrome_button_width, chrome_icon_button, dialog_tabs, icon_button, icon_menu_item, icon_only_button,
+    icon_text_button, icon_text_button_width, icon_text_menu_button, primary_button,
 };
 #[cfg(test)]
 use tooltip::show_hint;
 #[cfg(test)]
 pub(crate) use tooltip::tooltip_lines;
 pub use tooltip::{key_text, shortcut_text};
-// #653: a two-line label ends inside the content, above the group title row.
+// #653: a two-line label ends inside the content.
 const _: () = assert!(BIG_LABEL_Y + LABEL_PITCH + LABEL_LINE_H <= CONTENT_H);
 const _: () = assert!(BIG_ICON_Y + 16.0 <= BIG_LABEL_Y);
 
 #[cfg(test)]
 thread_local! {
     /// Groups drawn taller than [`CONTENT_H`] (title and height): their content runs into the
-    /// group label below, as View › Show did with four check boxes in one column.
+    /// ribbon band's padding, as View › Show did with four check boxes in one column.
     pub(crate) static TALL_GROUPS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 

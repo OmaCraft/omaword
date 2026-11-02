@@ -3,7 +3,7 @@
 use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::json;
 
-use crate::theme::{Tokens, medium, regular, semibold};
+use crate::theme::{Tokens, bold, regular};
 use crate::{WordApp, icons};
 
 /// The side menu: page id, label and icon (#1714).
@@ -39,33 +39,47 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         app.ui.backstage_page = "home".into();
     }
     let mac = app.integrated_titlebar;
+    // OmaGrid's nav colours (ui-consistency spec, File view): the accent with white text in the
+    // light theme, a soft accent with `text` in the dark one.
+    let (nav_bg, nav_text, nav_sel) = if t.dark {
+        (t.accent.gamma_multiply(0.35), t.text, egui::Color32::from_white_alpha(30))
+    } else {
+        (t.nav, egui::Color32::WHITE, egui::Color32::from_black_alpha(46))
+    };
     egui::Panel::left("backstage_nav")
-        .exact_size(200.0)
+        .exact_size(NAV_W)
         // Fixed width, as in Word: without this egui shows a resize handle that does nothing (#502).
         .resizable(false)
-        .frame(egui::Frame::NONE.fill(t.nav).inner_margin(egui::Margin { left: 0, right: 0, top: if mac { 0 } else { 12 }, bottom: 12 }))
+        .frame(egui::Frame::NONE.fill(nav_bg).inner_margin(egui::Margin { left: 0, right: 0, top: if mac { 0 } else { 10 }, bottom: 10 }))
         .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 0.0;
             let back = if mac {
                 // macOS (#222): the Backstage covers the title bar, so its top band is the title
                 // bar: the back button sits beside the traffic lights, centred with them and as far
                 // from them as the title bar's own controls, and the rest of the band drags the window.
-                let (band, drag) = ui.allocate_exact_size(vec2(200.0, app.mac_titlebar.height), Sense::click_and_drag());
+                let (band, drag) = ui.allocate_exact_size(vec2(NAV_W, app.mac_titlebar.height), Sense::click_and_drag());
                 if drag.drag_started() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
                 // The chevron's stroke starts at the content edge.
                 let c = back_chevron_c(band.min.x, band.center().y, app.session.view.full_screen, app.mac_titlebar.content_left);
                 let resp = ui.interact(Rect::from_center_size(c, vec2(22.0, band.height())), ui.scope_id().with("backstage_back"), Sense::click());
-                icons::paint(ui.painter(), Rect::from_center_size(c, vec2(18.0, 18.0)), "chevronLeft", egui::Color32::WHITE, egui::Color32::WHITE);
+                icons::paint(ui.painter(), Rect::from_center_size(c, vec2(18.0, 18.0)), "chevronLeft", nav_text, nav_text);
                 resp
             } else {
-                // The hit area is scoped to the chevron, not the whole 200px-wide row (#3041):
-                // the row reads as plain sidebar background next to it, so clicking there must
-                // not also close the File page, same as the macOS chevron fix (#2972) below.
-                let (r, _) = ui.allocate_exact_size(vec2(200.0, 40.0), Sense::hover());
-                let c = pos2(r.min.x + 26.0, r.center().y);
-                let resp = ui.interact(Rect::from_center_size(c, vec2(22.0, r.height())), ui.scope_id().with("backstage_back"), Sense::click());
-                icons::paint(ui.painter(), Rect::from_center_size(c, vec2(18.0, 18.0)), "chevronLeft", egui::Color32::WHITE, egui::Color32::WHITE);
+                // OmaGrid's Back row. Its hit area is the arrow and the word only, not the whole
+                // row (#3041): clicking the plain side bar beside them must not close the File page.
+                let (r, _) = ui.allocate_exact_size(vec2(NAV_W, NAV_ROW_H), Sense::hover());
+                let label = tl!("Back");
+                let label_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), regular(14.0), nav_text).size().x);
+                // Ends at the word: egui widens hit areas by its interact radius as it is.
+                let hit = Rect::from_min_max(r.min, pos2(r.min.x + 50.0 + label_w, r.max.y));
+                let resp = ui.interact(hit, ui.scope_id().with("backstage_back"), Sense::click());
+                if resp.hovered() {
+                    ui.painter().rect_filled(r, 0.0, nav_sel.gamma_multiply(0.55));
+                }
+                nav_glyphs(ui, r, "chevronLeft", label, nav_text, nav_text);
+                resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
                 resp
             };
             // Escape in the built-in file browser closes only the browser.
@@ -73,28 +87,16 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 app.ui.backstage = false;
                 app.canvas.want_focus = true;
             }
-            ui.add_space(if mac { 12.0 } else { 6.0 });
+            ui.add_space(10.0);
             for (id, label, icon) in PAGES {
-                // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
-                let on = has_document || works_without_document(id);
-                let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, on, tl!(label)));
-                let active = app.ui.backstage_page == id;
-                if active {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(46));
-                } else if on && resp.hovered() {
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
+                // Account and Options sit at the foot of the column, as in OmaGrid.
+                if id == "options" {
+                    continue;
                 }
-                let ink = if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) };
-                icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 31.0, r.center().y), vec2(18.0, 18.0)), icon, ink, ink);
-                ui.painter().text(
-                    pos2(r.min.x + 52.0, r.center().y),
-                    Align2::LEFT_CENTER,
-                    tl!(label),
-                    if active { semibold(14.0) } else { medium(14.0) },
-                    ink,
-                );
-                if resp.clicked() {
+                if id == "info" {
+                    nav_separator(ui, nav_text);
+                }
+                if nav_page(app, ui, id, label, icon, (nav_text, nav_sel)) {
                     match id {
                         // A document without a file goes to the Save As page (as in Word) instead
                         // of `file.save`, which would also open the native Save As dialog.
@@ -123,15 +125,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     }
                 }
             }
+            // Bottom up: Options last; OmaWord has no Account page, so About and the community
+            // link sit above Options in its place.
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for (label, id) in [("About", "about"), ("Discord community", "discord")] {
-                    let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
-                    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), tl!(label)));
-                    if resp.hovered() {
-                        ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
-                    }
-                    ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, tl!(label), regular(13.0), egui::Color32::WHITE);
-                    if resp.clicked() {
+                if nav_page(app, ui, "options", "Options", "options", (nav_text, nav_sel)) {
+                    app.ui.backstage_page = "options".into();
+                }
+                for (label, id, icon) in [("About", "about", "help"), ("Discord community", "discord", "discord")] {
+                    if nav_item(ui, icon, tl!(label), false, true, (nav_text, nav_sel)).clicked() {
                         if id == "discord" {
                             let _ = app.run("ui.discord", json!({}));
                         } else {
@@ -141,24 +142,76 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 }
             });
         });
-    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin::symmetric(40, 30))).show(ui, |ui| {
+    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.ribbon)).show(ui, |ui| {
         // The Print page fills the pane and scrolls its settings and its preview itself (#1156).
         if app.ui.backstage_page == "print" {
-            export_page(app, ui);
+            egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| export_page(app, ui));
             return;
         }
-        egui::ScrollArea::vertical().show(ui, |ui| match app.ui.backstage_page.as_str() {
-            "home" => home_page(app, ui),
-            "new" => new_page(app, ui),
-            "open" => open_page(app, ui),
-            "saveAs" => save_as_page(app, ui),
-            "info" => info_page(app, ui),
-            "recover" => recovery_page(app, ui),
-            "print" | "export" => export_page(app, ui),
-            "options" => crate::options::page(app, ui),
-            _ => home_page(app, ui),
+        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+            egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| {
+                ui.set_max_width(CONTENT_W);
+                match app.ui.backstage_page.as_str() {
+                    "home" => home_page(app, ui),
+                    "new" => new_page(app, ui),
+                    "open" => open_page(app, ui),
+                    "saveAs" => save_as_page(app, ui),
+                    "info" => info_page(app, ui),
+                    "recover" => recovery_page(app, ui),
+                    "print" | "export" => export_page(app, ui),
+                    "options" => crate::options::page(app, ui),
+                    _ => home_page(app, ui),
+                }
+            });
         });
     });
+}
+
+/// The side column's width and row height (OmaGrid's File view).
+const NAV_W: f32 = 196.0;
+const NAV_ROW_H: f32 = 38.0;
+
+/// The page area's margins and the widest its content runs (OmaGrid's File view).
+const CONTENT_MARGIN: egui::Margin = egui::Margin { left: 44, right: 32, top: 26, bottom: 32 };
+const CONTENT_W: f32 = 760.0;
+
+/// One side-column page row: greyed out without a document unless the page works without one
+/// (#1129). Returns whether it was clicked.
+fn nav_page(app: &WordApp, ui: &mut Ui, id: &str, label: &str, icon: &str, colors: (egui::Color32, egui::Color32)) -> bool {
+    let on = app.has_document() || works_without_document(id);
+    let selected = app.ui.backstage_page == id;
+    nav_item(ui, icon, tl!(label), selected, on, colors).clicked() && on
+}
+
+/// OmaGrid's side-column row: 38 high, icon centred at x + 30, label (regular 14) at x + 50; the
+/// selected row has the selection fill and a 4 px bar in the text colour, a hovered one a lighter
+/// fill. `colors` are the column's text and selection colours.
+fn nav_item(ui: &mut Ui, icon: &str, label: &str, selected: bool, on: bool, colors: (egui::Color32, egui::Color32)) -> egui::Response {
+    let (text, sel) = colors;
+    let (r, resp) = ui.allocate_exact_size(vec2(NAV_W, NAV_ROW_H), if on { Sense::click() } else { Sense::hover() });
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, on, selected, label));
+    if selected {
+        ui.painter().rect_filled(r, 0.0, sel);
+        ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(4.0, r.height())), 0.0, text);
+    } else if on && resp.hovered() {
+        ui.painter().rect_filled(r, 0.0, sel.gamma_multiply(0.55));
+    }
+    let ink = if on { text } else { text.gamma_multiply(0.45) };
+    nav_glyphs(ui, r, icon, label, ink, ink);
+    resp
+}
+
+/// A side-column row's icon (17 × 17 at x + 30) and label (regular 14 at x + 50).
+fn nav_glyphs(ui: &Ui, r: Rect, icon: &str, label: &str, ink: egui::Color32, accent: egui::Color32) {
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 30.0, r.center().y), vec2(17.0, 17.0)), icon, ink, accent);
+    ui.painter().text(pos2(r.min.x + 50.0, r.center().y), Align2::LEFT_CENTER, label, regular(14.0), ink);
+}
+
+/// OmaGrid's side-column separator: 17 high, a 1 px line inset 20 in the text colour at 35 %.
+fn nav_separator(ui: &mut Ui, text: egui::Color32) {
+    let (r, _) = ui.allocate_exact_size(vec2(NAV_W, 17.0), Sense::hover());
+    let y = r.center().y;
+    ui.painter().line_segment([pos2(r.min.x + 20.0, y), pos2(r.max.x - 20.0, y)], Stroke::new(1.0, text.gamma_multiply(0.35)));
 }
 
 /// Recovery is a separate copy. Leaving this page never discards it.
@@ -219,9 +272,19 @@ fn works_without_document(page: &str) -> bool {
     matches!(page, "home" | "new" | "open" | "options")
 }
 
+/// A page's title (OmaGrid: regular 28 in `text`, then 18 points).
 fn heading(ui: &mut Ui, s: &str) {
-    ui.label(egui::RichText::new(tl!(s)).font(semibold(26.0)));
-    ui.add_space(16.0);
+    let t = Tokens::get(ui.ctx());
+    ui.label(egui::RichText::new(tl!(s)).font(regular(28.0)).color(t.text));
+    ui.add_space(18.0);
+}
+
+/// A section heading on a page (OmaGrid: bold 15, 6 above and 8 below).
+fn section(ui: &mut Ui, s: &str) {
+    let t = Tokens::get(ui.ctx());
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new(s).font(bold(15.0)).color(t.text));
+    ui.add_space(8.0);
 }
 
 /// Draws a template thumbnail and caption as one accessible button, lazily renders and caches a
@@ -316,7 +379,7 @@ fn home_page(app: &mut WordApp, ui: &mut Ui) {
         }
     });
     ui.add_space(8.0);
-    let more = ui.add(egui::Label::new(egui::RichText::new(tl!("More templates →")).font(medium(13.5)).color(t.accent)).sense(Sense::click()));
+    let more = ui.add(egui::Label::new(egui::RichText::new(tl!("More templates →")).font(regular(13.5)).color(t.accent)).sense(Sense::click()));
     if more.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
         app.ui.backstage_page = "new".into();
     }
@@ -340,7 +403,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     let (folder, personal) = personal_templates(app, ui);
     let personal_found = matching_personal(&query, &personal);
     if found.is_empty() && personal_found.is_empty() {
-        ui.label(egui::RichText::new(tl!("No templates match your search.")).color(t.text_dim));
+        ui.label(egui::RichText::new(tl!("No templates match your search.")).font(regular(12.5)).color(t.text_dim));
         return;
     }
     if !found.is_empty() {
@@ -358,7 +421,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     }
     ui.add_space(24.0);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(tl!("Personal")).font(semibold(16.0)));
+        section(ui, tl!("Personal"));
         ui.add_space(8.0);
         if ui.small_button(tl!("Refresh")).on_hover_text(folder.to_string_lossy()).clicked() {
             refresh_personal_templates(ui.ctx());
@@ -371,8 +434,8 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
         ui.add_space(6.0);
     }
     if personal.is_empty() {
-        ui.label(egui::RichText::new(tl!("Templates you save in your templates folder show up here.")).color(t.text_dim));
-        ui.label(egui::RichText::new(folder.to_string_lossy()).font(regular(11.5)).color(t.text_dim));
+        ui.label(egui::RichText::new(tl!("Templates you save in your templates folder show up here.")).font(regular(12.5)).color(t.text_dim));
+        ui.label(egui::RichText::new(folder.to_string_lossy()).font(regular(12.5)).color(t.text_dim));
         return;
     }
     let mut categories: Vec<&str> = Vec::new();
@@ -384,7 +447,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     for category in categories {
         if !category.is_empty() {
             ui.add_space(12.0);
-            ui.label(egui::RichText::new(category).font(medium(13.5)).color(t.text));
+            ui.label(egui::RichText::new(category).font(bold(13.5)).color(t.text));
             ui.add_space(6.0);
         }
         ui.horizontal_wrapped(|ui| {
@@ -512,7 +575,7 @@ fn personal_error_id() -> egui::Id {
 /// stores an open failure in this page's temporary state.
 fn open_list(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
-    ui.label(egui::RichText::new(tl!("Recent")).font(semibold(16.0)));
+    section(ui, tl!("Recent"));
     ui.add_space(6.0);
     let error = ui.ctx().data(|d| d.get_temp::<String>(open_error_id())).unwrap_or_default();
     if !error.is_empty() {
@@ -520,7 +583,7 @@ fn open_list(app: &mut WordApp, ui: &mut Ui) {
         ui.add_space(6.0);
     }
     if app.ui.recent.is_empty() {
-        ui.label(egui::RichText::new(tl!("Documents you open will show up here.")).color(t.text_dim));
+        ui.label(egui::RichText::new(tl!("Documents you open will show up here.")).font(regular(12.5)).color(t.text_dim));
     }
     let shown = app.ui.recent.iter().take(app.ui.recent_shown()).cloned().collect::<Vec<_>>();
     let file_name = |p: &str| std::path::Path::new(p).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or(p.to_string());
@@ -534,8 +597,8 @@ fn open_list(app: &mut WordApp, ui: &mut Ui) {
             ui.painter().rect_filled(r, 4.0, t.hover);
         }
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 18.0, r.center().y), vec2(22.0, 22.0)), "printLayout", t.icon, t.accent);
-        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 13.0), Align2::LEFT_CENTER, name, medium(13.0), t.text);
-        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 29.0), Align2::LEFT_CENTER, p, regular(11.0), t.text_dim);
+        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 13.0), Align2::LEFT_CENTER, name, regular(13.0), t.text);
+        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 29.0), Align2::LEFT_CENTER, p, regular(12.0), t.text_dim);
         if resp.clicked() {
             let failed = open_recent(app, p).err();
             ui.ctx().data_mut(|d| d.insert_temp(open_error_id(), failed.unwrap_or_default()));
@@ -580,14 +643,14 @@ pub(crate) fn open_recent(app: &mut WordApp, path: &str) -> Result<(), String> {
 
 fn open_page(app: &mut WordApp, ui: &mut Ui) {
     heading(ui, "Open");
-    if ui.button(egui::RichText::new(tl!("Browse…")).font(medium(14.0))).clicked() {
+    if ui.button(egui::RichText::new(tl!("Browse…")).font(regular(14.0))).clicked() {
         let _ = app.run("ui.openFileDialog", json!({}));
     }
     // Linux and the BSDs (#576): the system dialog needs a file chooser portal or zenity; when it
     // doesn't show up, OmaWord's own browser is always one click away.
     #[cfg(all(unix, not(target_os = "macos"), not(target_arch = "wasm32")))]
     if ui
-        .button(egui::RichText::new(tl!("Browse in OmaWord…")).font(medium(14.0)))
+        .button(egui::RichText::new(tl!("Browse in OmaWord…")).font(regular(14.0)))
         .on_hover_text(tl!("Open a file with OmaWord's own browser when the system file dialog doesn't appear."))
         .clicked()
     {
@@ -606,13 +669,13 @@ fn save_as_page(app: &mut WordApp, ui: &mut Ui) {
         ui.label(egui::RichText::new(&error).color(ui.visuals().error_fg_color));
         ui.add_space(6.0);
     }
-    if ui.button(egui::RichText::new(tl!("Browse…")).font(medium(14.0))).clicked() {
+    if ui.button(egui::RichText::new(tl!("Browse…")).font(regular(14.0))).clicked() {
         app.save_as_dialog();
     }
     // A Word template in the user templates folder, which File › New lists under Personal (#2852).
     ui.add_space(8.0);
     if ui
-        .button(egui::RichText::new(tl!("Save as Word Template…")).font(medium(14.0)))
+        .button(egui::RichText::new(tl!("Save as Word Template…")).font(regular(14.0)))
         .on_hover_text(tl!("Saves a .dotx template in your templates folder. It shows up in File › New under Personal."))
         .clicked()
     {
@@ -625,7 +688,7 @@ fn info_page(app: &mut WordApp, ui: &mut Ui) {
     let info = app.session.run("file.info", &json!({})).unwrap_or_default();
     ui.columns(2, |cols| {
         let ui = &mut cols[0];
-        ui.label(egui::RichText::new(tl!("Properties")).font(semibold(15.0)));
+        section(ui, tl!("Properties"));
         // The fields edit a copy of the document's properties that is read afresh every frame,
         // so each change goes into the document as it is typed (#260): waiting for the field to
         // lose focus dropped the keystrokes, and leaving File with Escape never loses it at all.
@@ -659,7 +722,7 @@ fn info_page(app: &mut WordApp, ui: &mut Ui) {
         // Advanced Properties › Custom (#2982): view and edit the document's custom properties.
         ui.add_space(6.0);
         if ui
-            .button(egui::RichText::new(tl!("Advanced Properties…")).font(medium(13.5)))
+            .button(egui::RichText::new(tl!("Advanced Properties…")).font(regular(13.5)))
             .on_hover_text(tl!("View and edit the document's custom properties."))
             .clicked()
         {
@@ -667,7 +730,7 @@ fn info_page(app: &mut WordApp, ui: &mut Ui) {
         }
         // Protect Document › Encrypt with Password (#55).
         ui.add_space(18.0);
-        ui.label(egui::RichText::new(tl!("Protect Document")).font(semibold(15.0)));
+        section(ui, tl!("Protect Document"));
         let encrypted = info.get("encrypted").and_then(|v| v.as_bool()).unwrap_or(false);
         ui.label(if encrypted {
             tl!("A password is required to open this document.")
@@ -676,15 +739,15 @@ fn info_page(app: &mut WordApp, ui: &mut Ui) {
         });
         ui.horizontal(|ui| {
             let label = if encrypted { tl!("Change Password…") } else { tl!("Encrypt with Password…") };
-            if ui.button(egui::RichText::new(label).font(medium(13.5))).clicked() {
+            if ui.button(egui::RichText::new(label).font(regular(13.5))).clicked() {
                 let _ = app.run("file.encrypt", json!({}));
             }
-            if encrypted && ui.button(egui::RichText::new(tl!("Remove Password")).font(medium(13.5))).clicked() {
+            if encrypted && ui.button(egui::RichText::new(tl!("Remove Password")).font(regular(13.5))).clicked() {
                 let _ = app.run("file.encrypt", json!({"password": null}));
             }
         });
         let ui = &mut cols[1];
-        ui.label(egui::RichText::new(tl!("Statistics")).font(semibold(15.0)));
+        section(ui, tl!("Statistics"));
         for (l, k) in [("Pages", "pages"), ("Words", "words"), ("Paragraphs", "paragraphs"), ("Sections", "sections"), ("Comments", "comments")] {
             ui.label(format!("{}: {}", tl!(l), info.get(k).map(|v| v.to_string()).unwrap_or_default()));
         }

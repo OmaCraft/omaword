@@ -307,3 +307,19 @@ fn clicking_the_autosave_label_toggles_autosave() {
     assert!(h.state().autosaves(), "and clicking it again turns it back on");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Title-bar search box (ui-consistency spec): full width while there is room, then down to its
+/// minimum, then an icon button; only after that do the other controls lose their labels.
+#[test]
+fn search_box_shrinks_then_folds_before_labels_go() {
+    let gap = super::CLUSTER_GAP;
+    assert_eq!(super::search_fit(400.0), (Some(super::SEARCH_W), true));
+    assert_eq!(super::search_fit(200.0 + gap), (Some(200.0), true));
+    assert_eq!(super::search_fit(super::SEARCH_MIN_W + gap), (Some(super::SEARCH_MIN_W), true));
+    assert_eq!(super::search_fit(100.0), (None, true));
+    assert_eq!(super::search_fit(10.0), (None, false));
+    assert_eq!(super::search_fit(-50.0), (None, false));
+    // Hostile numbers don't panic.
+    let _ = super::search_fit(f32::NAN);
+    let _ = super::search_fit(f32::INFINITY);
+}

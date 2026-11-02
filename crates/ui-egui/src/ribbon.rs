@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use crate::colors::{Remember, Target};
 use crate::options::MeasureExt;
 use crate::theme::{Tokens, bold, regular};
-use crate::widgets::{CONTENT_H, LABEL_H, big, big_toggle, group, menu_button, small, split};
+use crate::widgets::{CONTENT_H, big, big_toggle, group, menu_button, small, split};
 use crate::{WordApp, icons};
 
 mod arrange;
@@ -76,6 +76,9 @@ use view::{outlining, view};
 /// Height of the tab strip row (OmaCraft ui-consistency spec); each tab is 30 pt high in it.
 const TAB_ROW_H: f32 = 34.0;
 
+/// Height of the ribbon card under the tab strip (OmaGrid's).
+const CARD_H: f32 = 88.0;
+
 /// A tab label's font: UI regular 13.5, bold for the active tab (OmaGrid's tab strip).
 fn tab_font(active: bool) -> egui::FontId {
     if active { bold(13.5) } else { regular(13.5) }
@@ -132,29 +135,17 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             app.ui.tab = next.to_string();
         }
     }
-    // Tab strip (OmaCraft ui-consistency spec, OmaGrid's metrics): a 34 pt row whose 30 pt tabs
-    // sit 1 pt below its top, inset 10 + 8 from the window edge.
+    // Tab strip (OmaCraft ui-consistency spec, OmaGrid's metrics): 30 pt tabs 1 pt below the top
+    // of the row, inset 10 + 8 from the window edge. Collapsed it is a 34 pt row; with the ribbon
+    // open the card follows 32 pt down, on the same fill and with no line between them.
+    let collapsed = app.ui.ribbon_collapsed;
     egui::Panel::top("tabs")
-        .exact_size(TAB_ROW_H)
-        .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 18, right: 10, top: 1, bottom: 3 }))
+        .exact_size(if collapsed { TAB_ROW_H } else { TAB_ROW_H - 2.0 })
+        .show_separator_line(collapsed)
+        .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 18, right: 10, top: 1, bottom: if collapsed { 3 } else { 1 } }))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
-                // Share, Editing mode and Comments keep their room; the tabs get what is left of it
-                // (#897, #2026), and the buttons give up their labels before a tab is drawn over them.
-                let share = tl!("Share");
-                let editing_label = if app.session.doc.settings.track_changes { tl!("Reviewing") } else { tl!("Editing") };
-                let comments = tl!("Comments");
-                let spaced = |w: f32| w + 2.0;
-                let button_widths = |level: usize| -> f32 {
-                    let labels = level == 0;
-                    let share_button = crate::widgets::chrome_button_width(ui, share, level < 2, false);
-                    let editing = crate::widgets::chrome_button_width(ui, editing_label, labels, true);
-                    let comment = crate::widgets::chrome_button_width(ui, comments, labels, false);
-                    // The gaps (6 + 4 + 8) and the strip's margin.
-                    spaced(share_button) + spaced(editing) + spaced(comment) + 18.0 + 12.0
-                };
-                let button_levels = [button_widths(0), button_widths(1), button_widths(2)];
                 let labels: Vec<&str> = tabs.iter().map(|(tab, custom)| if *custom { tab.as_str() } else { tl!(tab) }).collect();
                 let specs: Vec<TabSpec> = tabs
                     .iter()
@@ -166,40 +157,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         contextual: !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab.as_str()),
                     })
                     .collect();
-                let plan = plan_strip(&specs, button_levels, ui.available_width(), MORE_TABS_W + 2.0);
+                // Share, Editing and Comments are in the title bar now (ui-consistency spec): the tabs have
+                // the whole strip, less its right margin.
+                let plan = plan_strip(&specs, [0.0; 3], ui.available_width(), MORE_TABS_W + 2.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // No document open (#1129): nothing to share, edit or comment on — but only
-                    // these buttons. Disabling the whole line took the tab strip with it: the
-                    // tabs took clicks that did nothing, so the empty window had no way back to
-                    // the Start screen (#3045).
-                    ui.add_enabled_ui(app.has_document(), |ui| {
-                        // A plain small button, not an accent-filled pill (ui-consistency spec, Accent).
-                        let resp = crate::widgets::chrome_button(ui, "share", share, plan.buttons < 2, false);
-                        if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
-                            let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
-                        }
-                        ui.add_space(6.0);
-                        let track = app.session.doc.settings.track_changes;
-                        let mode = crate::widgets::chrome_button(ui, "pencil", editing_label, plan.buttons == 0, true);
-                        let mode = if plan.buttons == 0 { mode } else { mode.on_hover_text(editing_label) };
-                        egui::Popup::menu(&mode).show(|ui| {
-                            if ui.selectable_label(!track, tl!(tl!("Editing — edit the document directly"))).clicked() {
-                                let _ = app.run("review.trackChanges", json!({"value": false}));
-                                ui.close();
-                            }
-                            if ui.selectable_label(track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
-                                let _ = app.run("review.trackChanges", json!({"value": true}));
-                                ui.close();
-                            }
-                        });
-                        ui.add_space(4.0);
-                        let comments_button = crate::widgets::chrome_button(ui, "comment", comments, plan.buttons == 0, false);
-                        let comments_button = if plan.buttons == 0 { comments_button } else { comments_button.on_hover_text(comments) };
-                        if comments_button.clicked() {
-                            let _ = app.run("view.commentsPane", json!({}));
-                        }
-                    });
-                    ui.add_space(8.0);
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                         // The tabs that don't fit go into a » menu at the end of the strip (#897, #2026).
                         for (i, ((tab, custom), _)) in tabs.iter().zip(&plan.fits).enumerate().filter(|(_, (_, fits))| **fits) {
@@ -301,12 +262,16 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     if app.ui.ribbon_collapsed {
         return;
     }
+    // OmaGrid's ribbon card (ui-consistency spec, Phase 2): 88 pt high, radius 10, `ribbon` fill
+    // and a 1 px border, 10 / 6 inside, on the tab strip's fill with a 10 pt margin each side
+    // and 6 below.
     egui::Panel::top("ribbon")
-        .exact_size(CONTENT_H + LABEL_H + 10.0)
-        .frame(
-            egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 4 }).stroke(Stroke::new(1.0, t.border)),
-        )
+        .exact_size(CARD_H + 6.0)
+        .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 10, right: 10, top: 0, bottom: 6 }))
         .show(ui, |ui| {
+            let card = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), CARD_H));
+            ui.painter().rect_filled(card, 10.0, t.ribbon);
+            ui.painter().rect_stroke(card, 10.0, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
             // Inline labels, fields and check boxes in the ribbon body are 12.5 pt (OmaCraft
             // ui-consistency spec), not the 13 pt Body of dialogs and menus.
             for style in [egui::TextStyle::Body, egui::TextStyle::Button] {
@@ -318,82 +283,84 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             if !app.has_document() && app.ui.tab != "Help" {
                 ui.disable();
             }
-            let bg = ui.interact(ui.max_rect(), ui.scope_id().with("ribbon_background"), Sense::click());
+            let bg = ui.interact(card, ui.scope_id().with("ribbon_background"), Sense::click());
             bg.context_menu(|ui| crate::widgets::customize_menu_items(ui, app));
-            let entry = user_tabs.iter().find(|e| e.name == app.ui.tab);
-            crate::ribbon_fit::begin(ui.ctx(), &app.ui.tab, ui.available_width() - 4.0);
-            // 0.37 keeps the scroll offset private: an edge-chevron click leaves a one-frame
-            // request here and the next scroll area is built at that offset.
-            let pending_id = ui.scope_id().with("ribbon_scroll_pending");
-            let pending = ui.data(|d| d.get_temp::<f32>(pending_id));
-            let mut area = egui::ScrollArea::horizontal().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden);
-            if let Some(x) = pending {
-                area = area.horizontal_scroll_offset(x);
-            }
-            let scroll = area.show(ui, |ui| {
-                ui.horizontal_top(|ui| {
-                    ui.spacing_mut().item_spacing = vec2(2.0, 2.0);
-                    match entry {
-                        // Every tab hidden: nothing to show.
-                        Some(e) if e.hidden => return,
-                        Some(e) if e.custom => return custom_groups(app, ui, &e.groups),
-                        _ => {}
-                    }
-                    match app.ui.tab.as_str() {
-                        "Home" => home(app, ui),
-                        "Insert" => insert(app, ui),
-                        "Draw" => draw(app, ui),
-                        "Design" => design(app, ui),
-                        "Layout" => layout(app, ui),
-                        "References" => references(app, ui),
-                        "Mailings" => mailings(app, ui),
-                        "Review" => review(app, ui),
-                        "View" => view(app, ui),
-                        "Developer" => developer(app, ui),
-                        "Zotero" => zotero(app, ui),
-                        "Help" => help(app, ui),
-                        "Table Design" => table_design(app, ui),
-                        "Table Layout" => table_layout(app, ui),
-                        "Equation" if app.session.math.is_some() => crate::equation_tab::show(app, ui),
-                        "Picture Format" => picture_format(app, ui),
-                        "Shape Format" => shape_format(app, ui),
-                        "SmartArt Design" => smart_art_design(app, ui),
-                        "Outlining" => outlining(app, ui),
-                        "Chart Design" => chart_design(app, ui),
-                        _ => home(app, ui),
-                    }
-                    if let Some(e) = entry {
-                        custom_groups(app, ui, &e.groups);
-                    }
+            ui.scope_builder(egui::UiBuilder::new().max_rect(card.shrink2(vec2(10.0, 6.0))), |ui| {
+                let entry = user_tabs.iter().find(|e| e.name == app.ui.tab);
+                crate::ribbon_fit::begin(ui.ctx(), &app.ui.tab, ui.available_width() - 4.0);
+                // 0.37 keeps the scroll offset private: an edge-chevron click leaves a one-frame
+                // request here and the next scroll area is built at that offset.
+                let pending_id = ui.scope_id().with("ribbon_scroll_pending");
+                let pending = ui.data(|d| d.get_temp::<f32>(pending_id));
+                let mut area = egui::ScrollArea::horizontal().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden);
+                if let Some(x) = pending {
+                    area = area.horizontal_scroll_offset(x);
+                }
+                let scroll = area.show(ui, |ui| {
+                    ui.horizontal_top(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(2.0, 2.0);
+                        match entry {
+                            // Every tab hidden: nothing to show.
+                            Some(e) if e.hidden => return,
+                            Some(e) if e.custom => return custom_groups(app, ui, &e.groups),
+                            _ => {}
+                        }
+                        match app.ui.tab.as_str() {
+                            "Home" => home(app, ui),
+                            "Insert" => insert(app, ui),
+                            "Draw" => draw(app, ui),
+                            "Design" => design(app, ui),
+                            "Layout" => layout(app, ui),
+                            "References" => references(app, ui),
+                            "Mailings" => mailings(app, ui),
+                            "Review" => review(app, ui),
+                            "View" => view(app, ui),
+                            "Developer" => developer(app, ui),
+                            "Zotero" => zotero(app, ui),
+                            "Help" => help(app, ui),
+                            "Table Design" => table_design(app, ui),
+                            "Table Layout" => table_layout(app, ui),
+                            "Equation" if app.session.math.is_some() => crate::equation_tab::show(app, ui),
+                            "Picture Format" => picture_format(app, ui),
+                            "Shape Format" => shape_format(app, ui),
+                            "SmartArt Design" => smart_art_design(app, ui),
+                            "Outlining" => outlining(app, ui),
+                            "Chart Design" => chart_design(app, ui),
+                            _ => home(app, ui),
+                        }
+                        if let Some(e) = entry {
+                            custom_groups(app, ui, &e.groups);
+                        }
+                    });
                 });
+                if pending.is_some() {
+                    let _ = ui.data_mut(|d| d.remove_temp::<f32>(pending_id));
+                }
+                crate::ribbon_fit::end(ui.ctx());
+                // The bar is hidden, so a row wider than the window would be clipped with no sign. Edge chevrons show
+                // where more is and scroll it on click. Every command also stays reachable through Search Commands.
+                let r = scroll.inner_rect;
+                let overflow = scroll.content_size.x - r.width();
+                let offset = scroll.state.clamped_offset().x;
+                let step = 160.0;
+                let mut next = None;
+                if offset > 1.0 {
+                    let left = Rect::from_min_max(r.left_top(), pos2(r.left() + 18.0, r.bottom()));
+                    if edge_cue(ui, left, "‹", tl!("Scroll ribbon left"), &t) {
+                        next = Some(offset - step);
+                    }
+                }
+                if overflow - offset > 1.0 {
+                    let right = Rect::from_min_max(pos2(r.right() - 18.0, r.top()), r.right_bottom());
+                    if edge_cue(ui, right, "›", tl!("Scroll ribbon right"), &t) {
+                        next = Some(offset + step);
+                    }
+                }
+                if let Some(x) = next {
+                    ui.data_mut(|d| d.insert_temp(pending_id, x.clamp(0.0, overflow.max(0.0))));
+                    ui.ctx().request_repaint();
+                }
             });
-            if pending.is_some() {
-                let _ = ui.data_mut(|d| d.remove_temp::<f32>(pending_id));
-            }
-            crate::ribbon_fit::end(ui.ctx());
-            // The bar is hidden, so a row wider than the window would be clipped with no sign. Edge chevrons show
-            // where more is and scroll it on click. Every command also stays reachable through Search Commands.
-            let r = scroll.inner_rect;
-            let overflow = scroll.content_size.x - r.width();
-            let offset = scroll.state.clamped_offset().x;
-            let step = 160.0;
-            let mut next = None;
-            if offset > 1.0 {
-                let left = Rect::from_min_max(r.left_top(), pos2(r.left() + 18.0, r.bottom()));
-                if edge_cue(ui, left, "‹", tl!("Scroll ribbon left"), &t) {
-                    next = Some(offset - step);
-                }
-            }
-            if overflow - offset > 1.0 {
-                let right = Rect::from_min_max(pos2(r.right() - 18.0, r.top()), r.right_bottom());
-                if edge_cue(ui, right, "›", tl!("Scroll ribbon right"), &t) {
-                    next = Some(offset + step);
-                }
-            }
-            if let Some(x) = next {
-                ui.data_mut(|d| d.insert_temp(pending_id, x.clamp(0.0, overflow.max(0.0))));
-                ui.ctx().request_repaint();
-            }
         });
 }
 

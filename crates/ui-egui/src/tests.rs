@@ -5476,7 +5476,9 @@ fn the_full_screen_button_toggles_out() {
         h.step();
     }
     h.state_mut().run("ui.tab", json!({ "tab": "View" })).unwrap();
-    for _ in 0..3 {
+    // Measure, plan, measure the planned levels, plan again (as the ribbon_fit tests do), so a
+    // folded group isn't clicked while the plan still moves.
+    for _ in 0..8 {
         h.step();
     }
     // The View tab's Window group folds into a drop-down when the window is narrow (#662),

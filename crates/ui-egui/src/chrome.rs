@@ -302,6 +302,26 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             }
             let mut qat_end = full.min.x;
             let mut right_start = full.max.x;
+            // The centred title, measured first: the controls on the right give way to it.
+            let title = if !app.has_document() {
+                // No document open (#1129): the app's name alone.
+                "OmaWord".to_string()
+            } else {
+                format!(
+                    "{} — {}",
+                    app.title_stem(),
+                    if app.session.dirty {
+                        tl!("Edited")
+                    } else if app.session.path.is_some() {
+                        tl!("Saved")
+                    } else {
+                        tl!("Not saved")
+                    }
+                )
+            };
+            let font = TypeRung::Chrome.bold();
+            let track = TypeRung::Chrome.tracking();
+            let title_w = text_width(ui.painter(), &title.chars().take(240).collect::<String>(), &font, track, t.text);
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                 // AutoSave switch: greyed out, with the reason as its tooltip, when AutoSave can't
@@ -347,7 +367,29 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     quick_access(ui, app, if mac { 24.0 } else { control_h });
                 }
                 qat_end = ui.min_rect().max.x;
+                // The right cluster, laid out right to left (ui-consistency spec, "Title bar right
+                // cluster"): search box, Comments, Editing, Share, light/dark, Discord, account.
+                // When room is short the search box shrinks to 140, then becomes an icon, then
+                // Editing, Share and Discord drop their labels, all before the title is cut.
+                let room = (full.max.x - (full.center().x + title_w / 2.0 + TITLE_GAP)).max(0.0);
+                let share = tl!("Share");
+                let editing_label = if app.session.doc.settings.track_changes { tl!("Reviewing") } else { tl!("Editing") };
+                let comments = tl!("Comments");
+                let discord = tl!("Discord");
+                let cluster = |labels: bool| {
+                    let discord_w =
+                        if app.ui.show_discord { crate::widgets::chrome_button_width(ui, discord, labels, false) + CLUSTER_GAP } else { 0.0 };
+                    control_h
+                        + discord_w
+                        + crate::widgets::chrome_button_width(ui, share, labels, false)
+                        + crate::widgets::chrome_button_width(ui, editing_label, labels, true)
+                        + 2.0 * crate::widgets::CHROME_ICON_W
+                        + 5.0 * CLUSTER_GAP
+                };
+                let (search, labels) = search_fit(room - cluster(true));
+                let search = if labels { search } else { search_fit(room - cluster(false)).0 };
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing = vec2(CLUSTER_GAP, 0.0);
                     // Account / community.
                     let (r, resp) = ui.allocate_exact_size(vec2(control_h, control_h), Sense::click());
                     ui.painter().circle_filled(r.center(), control_h / 2.0 - 1.0, t.accent);
@@ -357,40 +399,50 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     if resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author)).clicked() {
                         let _ = app.run("ui.backstage", json!({"value": true, "page": "options", "pane": "general"}));
                     }
-                    ui.add_space(8.0);
                     if app.ui.show_discord {
                         // A plain small button, not an accent pill (ui-consistency spec, Accent).
-                        let resp = crate::widgets::chrome_button(ui, "discord", tl!("Discord"), true, false);
+                        let resp = crate::widgets::chrome_button(ui, "discord", discord, labels, false);
                         if resp.on_hover_text(tl!("Join the ArtCraft community on Discord")).clicked() {
                             let _ = app.run("ui.discord", json!({}));
                         }
-                        ui.add_space(8.0);
                     }
-                    search_box(app, ui, control_h);
+                    // Quick light/dark switch, as View › Switch Modes.
+                    let dark = ui.visuals().dark_mode;
+                    let mode = crate::widgets::chrome_icon_button(ui, "darkMode", tl!("Switch Modes"), control_h);
+                    mode.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, dark, tl!("Switch Modes")));
+                    if mode.clicked() {
+                        let _ = app.run("view.darkMode", json!({}));
+                    }
+                    // No document open (#1129): nothing to share, edit or comment on.
+                    ui.add_enabled_ui(app.has_document(), |ui| {
+                        let resp = crate::widgets::chrome_button(ui, "share", share, labels, false);
+                        let resp = if labels { resp } else { resp.on_hover_text(share) };
+                        if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
+                            let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
+                        }
+                        let track = app.session.doc.settings.track_changes;
+                        let mode = crate::widgets::chrome_button(ui, "pencil", editing_label, labels, true);
+                        let mode = if labels { mode } else { mode.on_hover_text(editing_label) };
+                        egui::Popup::menu(&mode).show(|ui| {
+                            if ui.selectable_label(!track, tl!(tl!("Editing — edit the document directly"))).clicked() {
+                                let _ = app.run("review.trackChanges", json!({"value": false}));
+                                ui.close();
+                            }
+                            if ui.selectable_label(track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
+                                let _ = app.run("review.trackChanges", json!({"value": true}));
+                                ui.close();
+                            }
+                        });
+                        if crate::widgets::chrome_icon_button(ui, "comment", comments, control_h).clicked() {
+                            let _ = app.run("view.commentsPane", json!({}));
+                        }
+                    });
+                    search_box(app, ui, search, control_h);
                     right_start = ui.min_rect().min.x;
                 });
             });
-            // Centred title.
-            let title = if !app.has_document() {
-                // No document open (#1129): the app's name alone.
-                "OmaWord".to_string()
-            } else {
-                format!(
-                    "{} — {}",
-                    app.title_stem(),
-                    if app.session.dirty {
-                        tl!("Edited")
-                    } else if app.session.path.is_some() {
-                        tl!("Saved")
-                    } else {
-                        tl!("Not saved")
-                    }
-                )
-            };
-            let font = TypeRung::Chrome.bold();
-            let track = TypeRung::Chrome.tracking();
             let cx = full.center().x;
-            let available = 2.0 * (cx - qat_end - 10.0).min(right_start - 10.0 - cx);
+            let available = 2.0 * (cx - qat_end - TITLE_GAP).min(right_start - TITLE_GAP - cx);
             let mut shown: String = title.chars().take(240).collect();
             if text_width(ui.painter(), &shown, &font, track, t.text) > available {
                 while !shown.is_empty() && text_width(ui.painter(), &format!("{shown}…"), &font, track, t.text) > available {
@@ -420,28 +472,53 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
         });
 }
 
-/// Search ("Tell me"): a box that opens command search. In the title bar, and in the Commands bar
-/// of Full Screen (#1678).
-fn search_box(app: &mut WordApp, ui: &mut Ui, control_h: f32) {
+/// Gap kept between the centred title and the controls on either side of it.
+const TITLE_GAP: f32 = 12.0;
+
+/// Spacing between the title bar's right-hand controls.
+const CLUSTER_GAP: f32 = 6.0;
+
+/// The search box's full and smallest widths before it becomes an icon button.
+const SEARCH_W: f32 = 260.0;
+const SEARCH_MIN_W: f32 = 140.0;
+
+/// The search box's width for `room` points (`None`: the icon button), and whether the other
+/// controls keep their labels: the box shrinks to its minimum, then folds into an icon, and
+/// only when even the icon does not fit do the labels go (pure, tested).
+fn search_fit(room: f32) -> (Option<f32>, bool) {
+    let room = room - CLUSTER_GAP;
+    if room >= SEARCH_MIN_W { (Some(room.min(SEARCH_W)), true) } else { (None, room >= crate::widgets::CHROME_ICON_W || room.is_nan()) }
+}
+
+/// Search ("Tell me"): a box that opens command search, `width` wide (`None`: a 28 pt icon
+/// button). In the title bar, and in the Commands bar of Full Screen (#1678).
+fn search_box(app: &mut WordApp, ui: &mut Ui, width: Option<f32>, control_h: f32) {
     let t = Tokens::get(ui.ctx());
-    let (r, resp) = ui.allocate_exact_size(vec2(260.0, control_h), Sense::click());
     let ph = tl!("Search commands and help");
+    let resp = match width {
+        Some(w) => {
+            let (r, resp) = ui.allocate_exact_size(vec2(w, control_h), Sense::click());
+            ui.painter().rect(r, 6.0, if resp.hovered() { t.input } else { t.ribbon }, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+            icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 16.0, r.center().y), vec2(16.0, 16.0)), "search", t.text_dim, t.accent);
+            let pfont = TypeRung::Control.regular();
+            let ptrack = TypeRung::Control.tracking();
+            let shown = fit_text(ui.painter(), ph, &pfont, ptrack, t.text_dim, r.max.x - 8.0 - (r.min.x + 30.0));
+            paint_text(
+                ui.painter(),
+                pos2(r.min.x + 30.0, r.center().y - TypeRung::Control.line_height() / 2.0),
+                Align2::LEFT_TOP,
+                &shown,
+                &pfont,
+                ptrack,
+                t.text_dim,
+            );
+            resp
+        }
+        None => crate::widgets::chrome_icon_button(ui, "search", ph, control_h),
+    };
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, ph));
-    ui.painter().rect(r, 6.0, if resp.hovered() { t.input } else { t.ribbon }, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
-    icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 16.0, r.center().y), vec2(16.0, 16.0)), "search", t.text_dim, t.accent);
-    let pfont = TypeRung::Control.regular();
-    let ptrack = TypeRung::Control.tracking();
-    paint_text(
-        ui.painter(),
-        pos2(r.min.x + 30.0, r.center().y - TypeRung::Control.line_height() / 2.0),
-        Align2::LEFT_TOP,
-        ph,
-        &pfont,
-        ptrack,
-        t.text_dim,
-    );
     if app.ui.keytips == crate::keytips::Phase::Tabs {
-        app.keytip_rects.push((r, crate::keytips::SEARCH_LETTER.to_string()));
+        app.keytip_rects.push((resp.rect, crate::keytips::SEARCH_LETTER.to_string()));
     }
     let tip = match crate::widgets::shortcut_text(app, "tools.search") {
         k if k.is_empty() => tl!("Search").to_string(),
@@ -508,7 +585,7 @@ pub fn screen_bar(app: &mut WordApp, ui: &mut Ui, screen: Screen) {
             }
         } else {
             ui.scope_builder(egui::UiBuilder::new().max_rect(Rect::from_center_size(full.center(), vec2(260.0, 22.0))), |ui| {
-                search_box(app, ui, 22.0);
+                search_box(app, ui, Some(SEARCH_W), 22.0);
             });
         }
     });

@@ -119,6 +119,26 @@ pub fn chrome_button(ui: &mut Ui, icon: &str, label: &str, show_text: bool, mark
     resp
 }
 
+/// Width of [`chrome_icon_button`].
+pub const CHROME_ICON_W: f32 = 28.0;
+
+/// A title-bar icon button (ui-consistency spec): 28 wide, `h` high, a 16 px icon and a hover /
+/// pressed fill. `label` is its accessible name and tooltip.
+pub fn chrome_icon_button(ui: &mut Ui, icon: &str, label: &str, h: f32) -> Response {
+    let t = Tokens::get(ui.ctx());
+    let (r, resp) = ui.allocate_exact_size(vec2(CHROME_ICON_W, h), Sense::click());
+    let enabled = ui.is_enabled();
+    if enabled && resp.is_pointer_button_down_on() {
+        ui.painter().rect_filled(r, CornerRadius::same(4), t.pressed);
+    } else if enabled && resp.hovered() {
+        ui.painter().rect_filled(r, CornerRadius::same(4), t.hover);
+    }
+    let (c, a) = if enabled { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
+    icons::paint(ui.painter(), Rect::from_center_size(r.center(), vec2(16.0, 16.0)), icon, c, a);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, enabled, label));
+    resp.on_hover_text(label)
+}
+
 /// A drop-down menu item with `icon` before `text`, at least `min_w` wide.
 pub fn icon_menu_item(ui: &mut Ui, icon: &str, text: &str, shortcut: &str, min_w: f32) -> Response {
     let t = Tokens::get(ui.ctx());

@@ -465,7 +465,8 @@ fn table_tabs_stay_clickable_when_the_tab_strip_overflows() {
 }
 
 /// #2026: at every width and in the longest languages no tab is drawn over Comments /
-/// Editing / Share, the tabs stay inside the window, and the buttons keep their room.
+/// Editing / Share (in the title bar since the ui-consistency change), the tabs stay inside the
+/// window, and the buttons keep their room.
 #[test]
 fn tab_strip_never_overlaps_the_right_buttons() {
     if !crate::i18n::catalogs_embedded() {
@@ -489,7 +490,7 @@ fn tab_strip_never_overlaps_the_right_buttons() {
             h.run_steps(3);
             let buttons: Vec<Rect> =
                 [tl!("Comments"), tl!("Editing"), tl!("Share")].iter().filter_map(|b| h.query_by_label(b).map(|n| n.rect())).collect();
-            assert_eq!(buttons.len(), 3, "{lang} {width}: the three buttons are on the strip");
+            assert_eq!(buttons.len(), 3, "{lang} {width}: the three buttons are drawn");
             assert!(buttons.iter().all(|b| b.right() <= width + 0.5 && b.left() >= 0.0), "{lang} {width}: buttons inside {buttons:?}");
             for tab in crate::ribbon::TABS.iter().copied().chain(["Table Design", "Table Layout"]) {
                 // A group folded into a button can share the tab's name (Draw): only the node on
@@ -538,13 +539,14 @@ fn plan_strip_gives_way_in_order() {
     let _ = plan_strip(&[spec(f32::NAN, false, true, false)], [f32::NAN; 3], 100.0, f32::NAN);
 }
 
-/// #1110: the strip's drawn buttons have names for screen readers: Share, and the "»" that
-/// holds the tabs that don't fit ("More tabs", not a glyph).
+/// #1110: the drawn chrome buttons have names for screen readers: Share, and the "»" that
+/// holds the tabs that don't fit ("More tabs", not a glyph). The window is narrow enough for
+/// the » now that the strip no longer shares its row with Share, Editing and Comments.
 #[test]
 fn the_tab_strip_buttons_have_names() {
     use egui_kittest::kittest::Queryable;
     let app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Text")), crate::Services::default());
-    let mut h = egui_kittest::Harness::builder().with_size(vec2(760.0, 700.0)).build_ui_state(
+    let mut h = egui_kittest::Harness::builder().with_size(vec2(560.0, 700.0)).build_ui_state(
         |ui, app: &mut WordApp| {
             let ctx = ui.ctx().clone();
             app.logic(&ctx);

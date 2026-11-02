@@ -1,29 +1,38 @@
 #[cfg(test)]
 use super::TALL_GROUPS;
-use super::buttons::{BIG_ICON_Y, BIG_LABEL_Y, CONTENT_H, DROPDOWN, LABEL_H, bg, label_line};
-use super::{Align2, Rect, Response, Sense, Stroke, Tokens, Ui, WordApp, icons, pos2, regular, vec2};
+use super::buttons::{BIG_ICON_Y, BIG_LABEL_Y, CONTENT_H, DROPDOWN, bg, label_line};
+use super::{Rect, Response, Sense, Stroke, Tokens, Ui, WordApp, icons, pos2, regular, vec2};
 
-/// A ribbon group: content, a centred label below and a divider on the right.
+/// Room above and below a group's content in the ribbon card's 72 pt band (OmaGrid's band).
+const GROUP_PAD_Y: f32 = 3.0;
+
+/// Height of the band a group and its separator take: the content and its padding.
+pub const GROUP_BAND_H: f32 = CONTENT_H + 2.0 * GROUP_PAD_Y;
+
+/// A ribbon group: its content, then OmaGrid's separator on the right. There is no caption row
+/// (OmaCraft ui-consistency spec, Phase 2): the group's name is its accessible name, and the
+/// dialog launcher, with the name in its tooltip, sits at the foot of the separator.
 pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
-    // The English title keys the launcher's id; the drawn title is translated.
+    // The English title keys the launcher's id; the shown name is translated.
     group_titled(ui, title, tl!(title), launcher, app, add);
 }
 
-/// A ribbon group whose title is shown as is (a custom group's name, Customize Ribbon).
+/// A ribbon group whose name is used as is (a custom group's name, Customize Ribbon).
 pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
-    let t = Tokens::get(ui.ctx());
     let start = ui.cursor().min;
     // #662: the window may be too narrow for the tab; the plan says how this group fits.
     let position = crate::ribbon_fit::position(ui.ctx());
     let level = crate::ribbon_fit::level(ui.ctx(), id_title);
     if level == crate::ribbon_fit::COLLAPSED {
-        collapsed_group(ui, id_title, position, title, launcher, app, add);
+        ui.vertical(|ui| {
+            ui.add_space(GROUP_PAD_Y);
+            collapsed_group(ui, id_title, position, title, app, add);
+        });
     } else {
         // Not folded: a drop-down left open while it was folded doesn't come back by itself.
         ui.data_mut(|d| d.remove::<bool>(collapsed_open_id(ui, id_title, position)));
-        let label_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.0), t.group_label).size().x);
         let inner = ui.vertical(|ui| {
-            ui.set_min_width(label_w + if launcher.is_some() { 22.0 } else { 10.0 });
+            ui.add_space(GROUP_PAD_Y);
             crate::ribbon_fit::set_compact(ui.ctx(), level == crate::ribbon_fit::COMPACT);
             let content = ui.allocate_ui_with_layout(vec2(ui.available_width(), CONTENT_H), egui::Layout::left_to_right(egui::Align::Min), |ui| {
                 ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
@@ -37,38 +46,35 @@ pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&
             #[cfg(not(test))]
             let _ = content;
         });
-        let r = inner.response.rect;
-        title_row(
-            ui,
-            Rect::from_min_max(pos2(start.x, start.y + CONTENT_H), pos2(r.max.x, start.y + CONTENT_H + LABEL_H)),
-            id_title,
-            title,
-            launcher,
-            app,
-        );
+        // The group's name for assistive technology; hover only, so its buttons keep their clicks.
+        let named = ui.interact(inner.response.rect, ui.scope_id().with(("ribbon_group", id_title, position)), Sense::hover());
+        named.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Group, true, title));
     }
-    ui.add_space(5.0);
-    let x = ui.cursor().min.x;
-    ui.painter().line_segment([pos2(x, start.y + 4.0), pos2(x, start.y + CONTENT_H + LABEL_H - 4.0)], Stroke::new(1.0, t.border));
-    ui.add_space(6.0);
+    separator(ui, id_title, title, launcher, app);
     crate::ribbon_fit::record(ui.ctx(), id_title, level, ui.cursor().min.x - start.x);
 }
 
-/// A group's title row (`r`): the centred title and, with a `launcher`, its dialog launcher.
-fn title_row(ui: &mut Ui, r: Rect, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp) {
+/// OmaGrid's group separator (13 wide, a 1 px line inset 6 at top and bottom), with the group's
+/// dialog launcher, when it has one, at its foot.
+fn separator(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp) {
     let t = Tokens::get(ui.ctx());
-    let title_y = r.center().y;
-    ui.painter().text(pos2(r.center().x, title_y), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
-    if let Some(cmd) = launcher {
-        let lr = Rect::from_center_size(pos2(r.max.x - 6.0, title_y), vec2(11.0, 11.0));
-        let resp = ui.interact(lr, ui.scope_id().with(("launch", id_title)), Sense::click());
-        if resp.hovered() {
-            ui.painter().rect_filled(lr.expand(2.0), 2.0, t.hover);
-        }
-        icons::paint(ui.painter(), lr, "launcher", t.text_dim, t.accent);
-        if resp.on_hover_text(crate::i18n::fmt(tl!("{group} settings"), &[("group", title)])).clicked() {
-            let _ = app.run(cmd, serde_json::json!({}));
-        }
+    let (r, _) = ui.allocate_exact_size(vec2(13.0, GROUP_BAND_H), Sense::hover());
+    let x = r.center().x;
+    let Some(cmd) = launcher else {
+        ui.painter().line_segment([pos2(x, r.top() + 6.0), pos2(x, r.bottom() - 6.0)], Stroke::new(1.0, t.border));
+        return;
+    };
+    let lr = Rect::from_center_size(pos2(x, r.bottom() - 7.0), vec2(11.0, 11.0));
+    ui.painter().line_segment([pos2(x, r.top() + 6.0), pos2(x, lr.top() - 4.0)], Stroke::new(1.0, t.border));
+    let resp = ui.interact(lr.expand(1.0), ui.scope_id().with(("launch", id_title)), Sense::click());
+    if resp.hovered() {
+        ui.painter().rect_filled(lr.expand(2.0), 2.0, t.hover);
+    }
+    icons::paint(ui.painter(), lr, "launcher", t.text_dim, t.accent);
+    let tip = crate::i18n::fmt(tl!("{group} settings"), &[("group", title)]);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), &tip));
+    if resp.on_hover_text(&tip).clicked() {
+        let _ = app.run(cmd, serde_json::json!({}));
     }
 }
 
@@ -78,22 +84,14 @@ fn collapsed_open_id(ui: &Ui, id_title: &str, position: usize) -> egui::Id {
 }
 
 /// A group folded into one drop-down button (the window is too narrow, #662): the button, as tall
-/// as the group with its title, shows the group's name, and its drop-down holds the whole group as
-/// designed with its title and launcher. The drop-down stays open while it is used (#1285): only a
+/// as the group, shows the group's name, and its drop-down holds the whole group as designed (its
+/// launcher stays beside the button). The drop-down stays open while it is used (#1285): only a
 /// click outside it, or on the button, closes it; clicks in the menus and lists its controls open
 /// (font and size lists, Change Case, colours) count as inside.
-fn collapsed_group(
-    ui: &mut Ui,
-    id_title: &str,
-    position: usize,
-    title: &str,
-    launcher: Option<&str>,
-    app: &mut WordApp,
-    add: impl FnOnce(&mut Ui, &mut WordApp),
-) {
+fn collapsed_group(ui: &mut Ui, id_title: &str, position: usize, title: &str, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
     let t = Tokens::get(ui.ctx());
     let text_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.5), t.text).size().x);
-    let (r, resp) = ui.allocate_exact_size(vec2((text_w + DROPDOWN + 14.0).max(48.0), CONTENT_H + LABEL_H), Sense::click());
+    let (r, resp) = ui.allocate_exact_size(vec2((text_w + DROPDOWN + 14.0).max(48.0), CONTENT_H), Sense::click());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, title));
     let open_id = collapsed_open_id(ui, id_title, position);
     let was_open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
@@ -128,14 +126,10 @@ fn collapsed_group(
         // full screen.
         app.escape_free = false;
         egui::Popup::menu(&resp).open_bool(&mut shown).close_behavior(egui::PopupCloseBehavior::IgnoreClicks).show(|ui| {
-            ui.vertical(|ui| {
-                ui.horizontal_top(|ui| {
-                    ui.set_min_height(CONTENT_H);
-                    ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
-                    add(ui, app);
-                });
-                let (row, _) = ui.allocate_exact_size(vec2(ui.min_rect().width(), LABEL_H), Sense::hover());
-                title_row(ui, row, id_title, title, launcher, app);
+            ui.horizontal_top(|ui| {
+                ui.set_min_height(CONTENT_H);
+                ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
+                add(ui, app);
             });
         });
         if !shown && child_open && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
