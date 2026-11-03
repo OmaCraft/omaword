@@ -226,7 +226,7 @@ fn recovery_does_not_replace_an_explicit_new_document() {
         app.ui.backstage_page = "home".into();
         let (mut h, poll) = pending_recovery_harness(app, &root);
         let previous = h.state().session.document_id();
-        h.get_by_label("New").click();
+        h.get_by_role_and_label(egui::accesskit::Role::Button, "New").click();
         h.run_steps(4);
         h.get_by_label(template).click();
         h.run_steps(4);
@@ -588,8 +588,8 @@ fn back_arrow_returns_to_the_page_with_accessibility_on() {
     assert!(h.state().canvas.widget_id.is_some(), "the page has been drawn");
     h.state_mut().run("ui.backstage", json!({"value": true})).unwrap();
     h.run_steps(4);
-    // The arrow heads the File page's side bar; it has no label to find it by.
-    let arrow = egui::pos2(26.0, 32.0);
+    // The arrow heads the File page's side bar, under the title bar.
+    let arrow = egui::pos2(26.0, crate::chrome::TITLE_BAR_H + 32.0);
     h.event(egui::Event::PointerMoved(arrow));
     for pressed in [true, false] {
         h.event(egui::Event::PointerButton { pos: arrow, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE });
@@ -708,7 +708,7 @@ fn options_back_arrow_with_accessibility_on() {
             a.ui.start_screen = true;
             assert!(a.start_screen());
         }
-        let back = if mac { mac_chevron(&a) } else { egui::pos2(26.0, 32.0) };
+        let back = if mac { mac_chevron(&a) } else { egui::pos2(26.0, crate::chrome::TITLE_BAR_H + 32.0) };
         let mut h = a11y_harness(a);
         if !start {
             h.state_mut().run("ui.backstage", json!({"value": true})).unwrap();

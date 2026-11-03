@@ -78,7 +78,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 if resp.hovered() {
                     ui.painter().rect_filled(r, 0.0, nav_sel.gamma_multiply(0.55));
                 }
-                nav_glyphs(ui, r, "chevronLeft", label, nav_text, nav_text);
+                nav_glyphs(ui, r, "backCircle", label, nav_text, nav_text);
                 resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
                 resp
             };
@@ -358,20 +358,12 @@ fn matching_templates(query: &str) -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// Home: a greeting, Blank plus a short row of templates with a link to New, then Recent.
+/// Home: Blank plus a short row of templates with a link to New, then Recent.
 fn home_page(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
-    let hour = wordcraft_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
-    heading(
-        ui,
-        if hour < 12 {
-            "Good morning"
-        } else if hour < 18 {
-            "Good afternoon"
-        } else {
-            "Good evening"
-        },
-    );
+    // "Home" then a "New" section, as OmaGrid's File view.
+    heading(ui, "Home");
+    section(ui, tl!("New"));
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = vec2(18.0, 0.0);
         for (label, template) in TEMPLATES.into_iter().take(HOME_TEMPLATES) {

@@ -406,7 +406,6 @@ fn report_catalog_gaps(mut keys: std::collections::BTreeSet<String>) {
     }
     let tabs = crate::ribbon::TABS.iter().chain(&["Table Design", "Table Layout"]);
     keys.extend(tabs.map(|t| t.to_string()));
-    keys.extend(["Good morning", "Good afternoon", "Good evening"].map(String::from));
     keys.extend(disabled_reasons());
     // Reasons the UI itself gives (`widgets.rs::tooltip`), which the engine's checks never reach.
     keys.insert("Open a document first".to_string());

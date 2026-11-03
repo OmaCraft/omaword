@@ -49,6 +49,11 @@ impl WordApp {
         let window = self.windows.shown();
         let moved = |app: &WordApp| app.windows.shown() != window;
         if self.ui.backstage {
+            // The title bar stays above the File view, as in the other OmaCraft apps; on macOS
+            // the File view's top band is the title bar (#222).
+            if !self.integrated_titlebar {
+                chrome::title_bar(self, ui);
+            }
             backstage::show(self, ui);
         } else if !self.has_document() {
             // No document open (#1129): the ribbon greyed out but for Help, and no page.

@@ -1301,6 +1301,12 @@ fn paint_view_and_tables(pen: &Pen, name: &str) -> bool {
         "minus" => pen.line(&[(4.0, 10.0), (16.0, 10.0)]),
         "check" => pen.line_c(&[(4.0, 10.5), (8.5, 15.0), (16.5, 5.0)], c),
         "chevronLeft" => pen.line(&[(13.0, 4.0), (7.0, 10.0), (13.0, 16.0)]),
+        // The File view's Back: a left arrow in a circle, as OmaGrid's.
+        "backCircle" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.line(&[(13.5, 10.0), (6.5, 10.0)]);
+            pen.line(&[(9.5, 7.0), (6.5, 10.0), (9.5, 13.0)]);
+        }
         "chevronRight" => pen.line(&[(7.0, 4.0), (13.0, 10.0), (7.0, 16.0)]),
         "chevronUp" => pen.line(&[(4.0, 13.0), (10.0, 7.0), (16.0, 13.0)]),
         "chevronDown" => pen.line(&[(4.0, 7.0), (10.0, 13.0), (16.0, 7.0)]),

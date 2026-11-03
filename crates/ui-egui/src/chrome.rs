@@ -248,6 +248,9 @@ const MAC_LIGHTS_LEFT: f32 = 10.0;
 /// Where title-bar content starts to the right of the traffic lights (the title bar here, the
 /// Backstage back button, #222): the end of the three lights plus the same gap the lights keep
 /// from the top of the window.
+/// The title bar's height off macOS (OmaGrid's 38).
+pub const TITLE_BAR_H: f32 = 38.0;
+
 pub const MAC_CONTENT_LEFT: f32 = MAC_LIGHTS_LEFT + 2.0 * MAC_LIGHT_PITCH + MAC_LIGHT + (MAC_TITLE_BAR - MAC_LIGHT) / 2.0;
 
 /// The macOS title bar as laid out around the traffic lights: its height and where content starts
@@ -287,7 +290,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
     let left = if mac { bar.content_left as i8 } else { 8 };
     let control_h = if mac { 22.0 } else { 26.0 };
     egui::Panel::top("title_bar")
-        .exact_size(if mac { bar.height } else { 38.0 })
+        .exact_size(if mac { bar.height } else { TITLE_BAR_H })
         .frame(egui::Frame::NONE.fill(t.title_bar).inner_margin(egui::Margin { left, right: 10, top: 0, bottom: 0 }))
         .show(ui, |ui| {
             let full = ui.max_rect();
