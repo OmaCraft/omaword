@@ -185,7 +185,7 @@ impl Server {
                     "capabilities": {"tools": {}, "resources": {}},
                     "serverInfo": {"name": "wordcraft", "title": "OmaWord", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/ustaaa/omaword"},
                     "instructions": format!(
-                        "{INSTRUCTIONS} Backend: {}. Community: https://discord.gg/artcraft · https://getartcraft.com/apps/wordcraft · https://github.com/storytold/wordcraft",
+                        "{INSTRUCTIONS} Backend: {}. Community: https://getartcraft.com/apps/wordcraft · https://github.com/storytold/wordcraft",
                         self.backend.describe()
                     ),
                 }))

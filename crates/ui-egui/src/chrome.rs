@@ -279,7 +279,7 @@ impl MacTitleBar {
     }
 }
 
-/// Draws the title bar with window dragging, AutoSave, quick access, account, community and search
+/// Draws the title bar with window dragging, AutoSave, quick access, account and search
 /// controls, and the centred clickable document title.
 pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
@@ -291,7 +291,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
     let control_h = if mac { 22.0 } else { 26.0 };
     egui::Panel::top("title_bar")
         .exact_size(if mac { bar.height } else { TITLE_BAR_H })
-        .frame(egui::Frame::NONE.fill(t.title_bar).inner_margin(egui::Margin { left, right: 10, top: 0, bottom: 0 }))
+        .frame(egui::Frame::NONE.fill(t.title_bar).inner_margin(egui::Margin { left, right: TITLE_RIGHT_PAD as i8, top: 0, bottom: 0 }))
         .show(ui, |ui| {
             let full = ui.max_rect();
             // Drag the window by the title bar (integrated title bar on macOS).
@@ -371,26 +371,27 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                 }
                 qat_end = ui.min_rect().max.x;
                 // The right cluster, laid out right to left (ui-consistency spec, "Title bar right
-                // cluster"): search box, Comments, Editing, Share, light/dark, Discord, account.
+                // cluster"): search box, Comments, Editing, Share, light/dark, account. The search
+                // box's right edge sits TITLE_ACTIONS_SLOT from the window's right edge while the
+                // actions fit in that slot (empty space between them), else right beside them.
                 // When room is short the search box shrinks to 140, then becomes an icon, then
-                // Editing, Share and Discord drop their labels, all before the title is cut.
-                let room = (full.max.x - (full.center().x + title_w / 2.0 + TITLE_GAP)).max(0.0);
+                // Editing and Share drop their labels, all before the title is cut.
+                let window_right = full.max.x + TITLE_RIGHT_PAD;
+                let title_end = full.center().x + title_w / 2.0 + TITLE_GAP;
                 let share = tl!("Share");
                 let editing_label = if app.session.doc.settings.track_changes { tl!("Reviewing") } else { tl!("Editing") };
                 let comments = tl!("Comments");
-                let discord = tl!("Discord");
+                // The actions' width, the gap before the search box included.
                 let cluster = |labels: bool| {
-                    let discord_w =
-                        if app.ui.show_discord { crate::widgets::chrome_button_width(ui, discord, labels, false) + CLUSTER_GAP } else { 0.0 };
                     control_h
-                        + discord_w
                         + crate::widgets::chrome_button_width(ui, share, labels, false)
                         + crate::widgets::chrome_button_width(ui, editing_label, labels, true)
                         + 2.0 * crate::widgets::CHROME_ICON_W
                         + 5.0 * CLUSTER_GAP
                 };
-                let (search, labels) = search_fit(room - cluster(true));
-                let search = if labels { search } else { search_fit(room - cluster(false)).0 };
+                let search_right = |labels: bool| search_right_edge(window_right, full.max.x - cluster(labels));
+                let (search, labels) = search_fit((search_right(true) - title_end).max(0.0));
+                let search = if labels { search } else { search_fit((search_right(false) - title_end).max(0.0)).0 };
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.spacing_mut().item_spacing = vec2(CLUSTER_GAP, 0.0);
                     // Account / community.
@@ -402,16 +403,9 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     if resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author)).clicked() {
                         let _ = app.run("ui.backstage", json!({"value": true, "page": "options", "pane": "general"}));
                     }
-                    if app.ui.show_discord {
-                        // A plain small button, not an accent pill (ui-consistency spec, Accent).
-                        let resp = crate::widgets::chrome_button(ui, "discord", discord, labels, false);
-                        if resp.on_hover_text(tl!("Join the ArtCraft community on Discord")).clicked() {
-                            let _ = app.run("ui.discord", json!({}));
-                        }
-                    }
-                    // Quick light/dark switch, as View › Switch Modes.
+                    // Quick light/dark switch, as View › Switch Modes; OmaGrid's half-filled circle.
                     let dark = ui.visuals().dark_mode;
-                    let mode = crate::widgets::chrome_icon_button(ui, "darkMode", tl!("Switch Modes"), control_h);
+                    let mode = crate::widgets::chrome_icon_button(ui, "appearance", tl!("Switch Modes"), control_h);
                     mode.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, dark, tl!("Switch Modes")));
                     if mode.clicked() {
                         let _ = app.run("view.darkMode", json!({}));
@@ -440,6 +434,9 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                             let _ = app.run("view.commentsPane", json!({}));
                         }
                     });
+                    // Empty space up to the slot, so the search box's right edge lands on it.
+                    let slot = search_right_edge(window_right, ui.cursor().max.x);
+                    ui.add_space(ui.cursor().max.x - slot);
                     search_box(app, ui, search, control_h);
                     right_start = ui.min_rect().min.x;
                 });
@@ -480,6 +477,19 @@ const TITLE_GAP: f32 = 12.0;
 
 /// Spacing between the title bar's right-hand controls.
 const CLUSTER_GAP: f32 = 6.0;
+
+/// Padding between the title bar's rightmost control and the window's right edge.
+const TITLE_RIGHT_PAD: f32 = 8.0;
+
+/// Room reserved for the title-bar actions (padding included) right of the search box: its right
+/// edge sits this far from the window's right edge unless the actions need more (all apps).
+const TITLE_ACTIONS_SLOT: f32 = 300.0;
+
+/// Where the search box's right edge goes: `TITLE_ACTIONS_SLOT` from `window_right`, or
+/// `beside_actions` (just left of the actions) when they take more than the slot (pure, tested).
+fn search_right_edge(window_right: f32, beside_actions: f32) -> f32 {
+    beside_actions.min(window_right - TITLE_ACTIONS_SLOT)
+}
 
 /// The search box's full and smallest widths before it becomes an icon button.
 const SEARCH_W: f32 = 260.0;

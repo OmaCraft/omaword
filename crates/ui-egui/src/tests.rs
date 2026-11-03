@@ -610,6 +610,51 @@ fn quick_access_toolbar_is_a_ui_command_and_survives_a_restart() {
     assert_eq!(c.run("ui.quickAccessToolbar", json!({"value": false})).unwrap()["quickAccessToolbar"], false, "works without a document");
 }
 
+/// Settings saved while the title bar had a community (Discord) button still load: the old
+/// `showDiscord` key is ignored and the rest is kept.
+#[test]
+fn settings_with_the_old_show_discord_key_still_load() {
+    let old: UiState = serde_json::from_str(r#"{"tab":"Insert","showDiscord":false,"quickAccessToolbar":false}"#).unwrap();
+    assert!(old.tab == "Insert" && !old.quick_access_toolbar);
+    assert!(!serde_json::to_string(&old).unwrap().contains("iscord"), "and it is not written back");
+}
+
+/// Title bar right cluster (ui-consistency spec, all apps): at 1440×900 off macOS the actions fit
+/// in the 300 pt slot, so the search box's right edge sits 300 pt from the window's right edge.
+/// Nothing in the title bar or the File view links to Discord (OmaCraft has no server).
+#[test]
+fn title_bar_search_box_sits_at_the_actions_slot() {
+    use egui::accesskit::Role;
+    let mut a = app();
+    a.integrated_titlebar = false;
+    // The whole 1440×900 window, without the test harness's 8 pt margin around it.
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            ui.scope_builder(egui::UiBuilder::new().max_rect(ctx.content_rect()), |ui| app.ui(ui));
+        },
+        a,
+    );
+    h.run_steps(6);
+    let in_title_bar = |r: egui::Rect| r.min.y < crate::chrome::TITLE_BAR_H;
+    let search = h.get_by_role_and_label(Role::Button, "Search commands and help").rect();
+    assert!((search.max.x - 1140.0).abs() <= 0.5, "search box right edge {} (want 1140)", search.max.x);
+    assert!((search.width() - 260.0).abs() <= 0.5, "at full width, {}", search.width());
+    let comments = h.get_all_by_label("Comments").map(|n| n.rect()).find(|r| in_title_bar(*r)).expect("Comments in the title bar");
+    let account = h.get_by_label("Account").rect();
+    assert!((account.max.x - 1432.0).abs() <= 0.5, "8 pt from the right edge, {}", account.max.x);
+    let actions = 1440.0 - comments.min.x;
+    assert!(actions <= 300.0 - 6.0, "the actions ({actions} pt) fit in the slot");
+    assert!(comments.min.x - search.max.x >= 6.0 - 0.5, "space between the search box and the actions");
+    assert!(h.query_by_label_contains("Discord").is_none(), "no Discord button");
+    h.state_mut().run("ui.backstage", json!({"value": true})).unwrap();
+    h.run_steps(4);
+    assert!(h.state().ui.backstage);
+    assert!(h.query_by_label("About").is_some(), "the File view shows About");
+    assert!(h.query_by_label_contains("Discord").is_none(), "and no Discord link");
+}
+
 fn harness(a: WordApp) -> egui_kittest::Harness<'static, WordApp> {
     egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
         |ui, app: &mut WordApp| {
@@ -650,7 +695,7 @@ fn start_screen_shows_file_home_and_esc_leaves_no_document() {
     for id in ["format.bold", "text.insert", "file.save", "file.saveAs", "file.print", "edit.paste", "insert.table", "ui.print"] {
         assert!(!widgets::enabled(a, id), "{id} is off with no document");
     }
-    for id in ["file.new", "file.open", "ui.backstage", "ui.tab", "ui.discord", "file.options", "ui.theme"] {
+    for id in ["file.new", "file.open", "ui.backstage", "ui.tab", "file.options", "ui.theme"] {
         assert!(widgets::enabled(a, id), "{id} works with no document");
     }
     assert!(!chrome::qat_enabled(a, "file.save"));
@@ -3534,7 +3579,10 @@ fn the_default_app_button_shows_only_with_the_hosts_hook() {
             a,
         );
         h.run_steps(4);
-        assert!(h.query_by_label("Show the community button in the title bar").is_some(), "hook {hook}: the Options page rendered");
+        assert!(
+            h.query_by_role_and_label(egui::accesskit::Role::CheckBox, "Show the mini toolbar when text is selected").is_some(),
+            "hook {hook}: the Options page rendered"
+        );
         assert_eq!(h.query_by_label(LABEL).is_some(), hook, "hook {hook}: the button");
         if hook {
             h.get_by_label(LABEL).click();

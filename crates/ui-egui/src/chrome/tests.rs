@@ -323,3 +323,13 @@ fn search_box_shrinks_then_folds_before_labels_go() {
     let _ = super::search_fit(f32::NAN);
     let _ = super::search_fit(f32::INFINITY);
 }
+
+/// Title bar right cluster (ui-consistency spec): the search box's right edge sits
+/// TITLE_ACTIONS_SLOT from the window's right edge while the actions fit in the slot, and just
+/// left of them when they need more.
+#[test]
+fn search_box_right_edge_follows_the_actions_slot() {
+    assert_eq!(super::search_right_edge(1440.0, 1200.0), 1440.0 - super::TITLE_ACTIONS_SLOT);
+    assert_eq!(super::search_right_edge(1440.0, 1100.0), 1100.0, "wider actions push it left");
+    assert_eq!(super::search_right_edge(1440.0, 1140.0), 1140.0);
+}

@@ -1099,6 +1099,18 @@ fn paint_view_and_tables(pen: &Pen, name: &str) -> bool {
             pen.fcircle(10.0, 10.0, 7.0, c);
             pen.fcircle(13.0, 8.0, 6.0, Color32::from_rgba_unmultiplied(255, 255, 255, 230));
         }
+        // The title bar's light/dark switch: a circle, its right half filled (OmaGrid's
+        // `Icon::Appearance`, scaled from its 16 to this 20 grid).
+        "appearance" => {
+            pen.circle(10.0, 10.0, 6.875, c);
+            let half: Vec<(f32, f32)> = (0..=12)
+                .map(|i| {
+                    let a = std::f32::consts::PI * (i as f32 / 12.0 - 0.5);
+                    (10.0 + 6.875 * a.cos(), 10.0 + 6.875 * a.sin())
+                })
+                .collect();
+            pen.fill(&half, c);
+        }
         "interfaceTheme" => {
             // A window, its right half dark: light, dark or both (follow the system).
             pen.frect(10.0, 3.5, 17.5, 16.5, c);
@@ -1344,11 +1356,6 @@ fn paint_view_and_tables(pen: &Pen, name: &str) -> bool {
             pen.rect(3.0, 11.0, 9.0, 17.0, c);
             pen.line_c(&[(14.0, 11.0), (14.0, 17.0)], a);
             pen.line_c(&[(11.0, 14.0), (17.0, 14.0)], a);
-        }
-        "discord" => {
-            pen.fill(&[(3.0, 6.0), (7.0, 3.5), (13.0, 3.5), (17.0, 6.0), (17.5, 14.0), (13.5, 16.5), (6.5, 16.5), (2.5, 14.0)], a);
-            pen.fcircle(7.5, 10.5, 1.5, Color32::WHITE);
-            pen.fcircle(12.5, 10.5, 1.5, Color32::WHITE);
         }
         _ => return false,
     }

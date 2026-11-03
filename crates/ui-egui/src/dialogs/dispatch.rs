@@ -1092,7 +1092,6 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.label(tl!("Omarchy desktop adaptation of WordCraft v0.12.0.\nDocument engine and file formats remain upstream."));
             ui.add_space(6.0);
             ui.hyperlink_to(tl!("getartcraft.com/apps/wordcraft"), "https://getartcraft.com/apps/wordcraft");
-            ui.hyperlink_to(tl!("Join us on Discord: discord.gg/artcraft"), "https://discord.gg/artcraft");
             ui.hyperlink_to(tl!("OmaWord source: github.com/ustaaa/omaword"), "https://github.com/ustaaa/omaword");
             ui.add_space(6.0);
             ui.label(egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.")).small().weak());

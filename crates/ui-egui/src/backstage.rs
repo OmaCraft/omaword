@@ -125,20 +125,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     }
                 }
             }
-            // Bottom up: Options last; OmaWord has no Account page, so About and the community
-            // link sit above Options in its place.
+            // Bottom up: Options last; OmaWord has no Account page, so About sits above
+            // Options in its place.
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                 if nav_page(app, ui, "options", "Options", "options", (nav_text, nav_sel)) {
                     app.ui.backstage_page = "options".into();
                 }
-                for (label, id, icon) in [("About", "about", "help"), ("Discord community", "discord", "discord")] {
-                    if nav_item(ui, icon, tl!(label), false, true, (nav_text, nav_sel)).clicked() {
-                        if id == "discord" {
-                            let _ = app.run("ui.discord", json!({}));
-                        } else {
-                            app.dialog = crate::dialogs::Dialog::open("about", app);
-                        }
-                    }
+                if nav_item(ui, "help", tl!("About"), false, true, (nav_text, nav_sel)).clicked() {
+                    app.dialog = crate::dialogs::Dialog::open("about", app);
                 }
             });
         });

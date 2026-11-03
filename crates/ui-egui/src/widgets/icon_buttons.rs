@@ -94,7 +94,7 @@ pub fn chrome_button_width(ui: &Ui, label: &str, show_text: bool, marker: bool) 
     24.0 + text_w + if marker { 12.0 } else { 0.0 }
 }
 
-/// A plain small chrome button (Share, Editing, Comments, Discord): 16 px icon, optional 12.5 pt
+/// A plain small chrome button (Share, Editing, Comments): 16 px icon, optional 12.5 pt
 /// label and drop-down marker, and only a hover / pressed fill — no frame and no accent fill, as
 /// OmaGrid's `small_button` (OmaCraft ui-consistency spec, Accent). `label` is the accessible name.
 pub fn chrome_button(ui: &mut Ui, icon: &str, label: &str, show_text: bool, marker: bool) -> Response {
