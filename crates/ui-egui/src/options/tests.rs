@@ -42,7 +42,7 @@ fn nav_harness(language: &str, percent: u16) -> egui_kittest::Harness<'static, W
 
 /// The Options pane row named `label`. File view rows can share a name ("Save") and also report
 /// their selection, so take the rightmost one: the pane list sits right of the File column.
-fn options_pane_row<'h>(h: &'h egui_kittest::Harness<'_, WordApp>, label: &str) -> egui_kittest::Node<'h> {
+fn options_pane_row<'h>(h: &'h egui_kittest::Harness<'_, WordApp>, label: &'h str) -> egui_kittest::Node<'h> {
     h.query_all_by_label(label)
         .filter(|n| n.accesskit_node().toggled().is_some())
         .max_by(|a, b| a.rect().left().total_cmp(&b.rect().left()))

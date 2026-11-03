@@ -455,7 +455,9 @@ fn table_tabs_stay_clickable_when_the_tab_strip_overflows() {
     );
     h.run_steps(3);
     // Buttons only: the Home tab's Editing group carries the same name for screen readers.
-    let button = |label: &str| egui_kittest::kittest::By::new().label(label).role(egui::accesskit::Role::Button);
+    fn button(label: &str) -> egui_kittest::kittest::By<'_> {
+        egui_kittest::kittest::By::new().label(label).role(egui::accesskit::Role::Button)
+    }
     let buttons = [tl!("Comments"), tl!("Editing")].map(|b| h.get(button(b)).rect());
     for tab in ["Table Design", "Table Layout"] {
         let r = h.get_by_label(tl!(tab)).rect();
