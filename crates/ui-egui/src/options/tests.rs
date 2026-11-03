@@ -40,6 +40,15 @@ fn nav_harness(language: &str, percent: u16) -> egui_kittest::Harness<'static, W
     h
 }
 
+/// The Options pane row named `label`. File view rows can share a name ("Save") and also report
+/// their selection, so take the rightmost one: the pane list sits right of the File column.
+fn options_pane_row<'h>(h: &'h egui_kittest::Harness<'_, WordApp>, label: &str) -> egui_kittest::Node<'h> {
+    h.query_all_by_label(label)
+        .filter(|n| n.accesskit_node().toggled().is_some())
+        .max_by(|a, b| a.rect().left().total_cmp(&b.rect().left()))
+        .expect("pane has its full accessible name")
+}
+
 /// File › Options must not offer a way around the protected document's author check.
 #[test]
 fn user_name_field_disables_when_protection_starts() {
@@ -69,8 +78,7 @@ fn options_nav_labels_stay_inside_their_rows() {
                 h.run_steps(4);
                 for id in wordcraft_engine::cmd::options::PANES {
                     let label = crate::i18n::tr(crate::i18n::Lang::from_pref(language), super::pane_label(id));
-                    let node =
-                        h.query_all_by_label(label).find(|n| n.accesskit_node().toggled().is_some()).expect("pane has its full accessible name");
+                    let node = options_pane_row(&h, label);
                     assert_eq!(
                         node.accesskit_node().toggled(),
                         Some(if id == selected { egui::accesskit::Toggled::True } else { egui::accesskit::Toggled::False })
@@ -109,11 +117,7 @@ fn options_nav_rows_keep_hover_and_selection() {
             let mut h = nav_harness(language, percent);
             for (id, setting) in [("display", "Spaces"), ("save", "Save documents"), ("accessibility", "Visual effects"), ("general", "Interface")] {
                 let lang = crate::i18n::Lang::from_pref(language);
-                let row = h
-                    .query_all_by_label(crate::i18n::tr(lang, super::pane_label(id)))
-                    .find(|n| n.accesskit_node().toggled().is_some())
-                    .expect("pane has its full accessible name")
-                    .rect();
+                let row = options_pane_row(&h, crate::i18n::tr(lang, super::pane_label(id))).rect();
                 // Both ends of the row, including its empty left inset, stay clickable.
                 for x in [row.left() + 2.0, row.right() - 2.0] {
                     h.state_mut().run("file.options", json!({"pane": "agents"})).unwrap();

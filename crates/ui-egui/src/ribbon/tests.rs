@@ -454,7 +454,9 @@ fn table_tabs_stay_clickable_when_the_tab_strip_overflows() {
         app,
     );
     h.run_steps(3);
-    let buttons = [tl!("Comments"), tl!("Editing")].map(|b| h.get_by_label(b).rect());
+    // Buttons only: the Home tab's Editing group carries the same name for screen readers.
+    let button = |label: &str| egui_kittest::kittest::By::new().label(label).role(egui::accesskit::Role::Button);
+    let buttons = [tl!("Comments"), tl!("Editing")].map(|b| h.get(button(b)).rect());
     for tab in ["Table Design", "Table Layout"] {
         let r = h.get_by_label(tl!(tab)).rect();
         assert!(r.right() <= 1280.0 && buttons.iter().all(|b| !b.intersects(r)), "{tab} {r:?} under {buttons:?}");
