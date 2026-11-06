@@ -19,23 +19,25 @@ pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp
 
 /// A ribbon group whose name is used as is (a custom group's name, Customize Ribbon).
 pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
-    let start = ui.cursor().min;
+    let start = ui.cursor();
     // #662: the window may be too narrow for the tab; the plan says how this group fits.
     let position = crate::ribbon_fit::position(ui.ctx());
     let level = crate::ribbon_fit::level(ui.ctx(), id_title);
     if level == crate::ribbon_fit::COLLAPSED {
-        ui.vertical(|ui| {
+        crate::rtl::vertical(ui, |ui| {
             ui.add_space(GROUP_PAD_Y);
             collapsed_group(ui, id_title, position, title, app, add);
         });
     } else {
         // Not folded: a drop-down left open while it was folded doesn't come back by itself.
         ui.data_mut(|d| d.remove::<bool>(collapsed_open_id(ui, id_title, position)));
-        let inner = ui.vertical(|ui| {
+        let inner = crate::rtl::vertical(ui, |ui| {
             ui.add_space(GROUP_PAD_Y);
             crate::ribbon_fit::set_compact(ui.ctx(), level == crate::ribbon_fit::COMPACT);
-            let content = ui.allocate_ui_with_layout(vec2(ui.available_width(), CONTENT_H), egui::Layout::left_to_right(egui::Align::Min), |ui| {
+            let content = ui.allocate_ui_with_layout(vec2(0.0, CONTENT_H), crate::rtl::row_layout(ui, egui::Align::Min), |ui| {
                 ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
+                // Ribbon controls measure to their natural width; labels must not wrap in the fixed-height band.
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                 add(ui, app);
             });
             crate::ribbon_fit::end_compact(ui.ctx());
@@ -51,7 +53,12 @@ pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&
         named.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Group, true, title));
     }
     separator(ui, id_title, title, launcher, app);
-    crate::ribbon_fit::record(ui.ctx(), id_title, level, ui.cursor().min.x - start.x);
+    crate::ribbon_fit::record(ui.ctx(), id_title, level, group_width(crate::rtl::on(), start, ui.cursor()));
+}
+
+/// Measure the advancing cursor edge, which stays finite in either row direction.
+fn group_width(rtl: bool, before: Rect, after: Rect) -> f32 {
+    if rtl { before.max.x - after.max.x } else { after.min.x - before.min.x }
 }
 
 /// OmaGrid's group separator (13 wide, a 1 px line inset 6 at top and bottom), with the group's
@@ -187,7 +194,7 @@ pub fn command_icon(id: &str) -> &str {
 /// Right-click on a command's button: put it on (or take it off) the Quick Access Toolbar, or
 /// open Customize Ribbon (#379).
 pub fn command_menu(resp: &Response, app: &mut WordApp, id: &str) {
-    resp.context_menu(|ui| {
+    crate::rtl::context_menu(resp, |ui| {
         let known = app.session.registry.get(id).is_some();
         let on_qat = app.session.ribbon.qat().contains(&id);
         if known && !on_qat && ui.button(tl!("Add to Quick Access Toolbar")).clicked() {
@@ -228,4 +235,22 @@ pub fn row(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
         ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
         add(ui);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A right-to-left row's cursor reaches to negative infinity on the left, so the width of a
+    /// group in it comes from the right edge: finite and positive, as the ribbon planner needs.
+    #[test]
+    fn a_group_in_a_right_to_left_row_has_a_finite_width() {
+        let before = Rect::from_min_max(pos2(f32::NEG_INFINITY, 0.0), pos2(900.0, 90.0));
+        let after = Rect::from_min_max(pos2(f32::NEG_INFINITY, 0.0), pos2(740.0, 90.0));
+        assert_eq!(group_width(true, before, after), 160.0);
+        assert!(!(before.min.x - after.min.x).is_finite(), "the left edge cannot measure it");
+        let before = Rect::from_min_max(pos2(20.0, 0.0), pos2(f32::INFINITY, 90.0));
+        let after = Rect::from_min_max(pos2(180.0, 0.0), pos2(f32::INFINITY, 90.0));
+        assert_eq!(group_width(false, before, after), 160.0);
+    }
 }

@@ -110,3 +110,14 @@ Full metadata reported only existing unused egui patch warnings. No compile or t
 
 ## 2026-11-01 Claude upstream review corrections
 Full Halo cargo xtask ci passed all8 steps at a526d740. Added explicit fail-closed FreeBSD entrypoint to archived upstream packager (bash invocation exits2 without package). No runtime/source changes or deployment. Exact final-head validation and Claude re-review follow.
+
+### 2026-11-05 WordCraft v0.15.2 alpha 3 integration
+Merged upstream `edfea68101220c9bdc4b2b0ccf4acd9612bedb6e` into `codex/alpha-3` without committing. Set `OMA_VERSION` to `0.15.2-oma.1.alpha.1`; retained the upstream Cargo version separately. Preserved OmaWord chrome/theme integration, isolated app identity/config, original icon assets and Linux pilot packaging, and installation-managed updates (removed upstream in-app updater dependency/behavior). Updated the About version, version output behavior when `WORDCRAFT_BUILD_SHA` is absent, and the README upstream version reference. Merge is staged for review. `cargo fmt --all -- --check`, locked offline no-deps metadata, Linux packaging shell syntax, and `git diff --check` pass. No Rust compile/tests run here; full CI remains for the Linux x86 build host. Detailed conflict/safety notes: `/Users/irtek/Development/OmaCraft/.worktrees/alpha3-word-notes-integration.md`.
+
+## Alpha 3 integration gate follow-up (2026-11-05)
+
+- Full Rust 1.99.1 Linux x86_64 `cargo xtask ci` passed all nine steps, including interface audit, language data and 15-crate WASM check. Summed harness executions: 5190 passed, zero failed, seven existing ignored tests; this is not a unique-test count.
+- Restored missing AutoSave and ribbon width helpers, Backstage keytip badges, RTL tab/title/ribbon layout and the File content direction wrapper. Fixed natural-width ribbon label wrapping while preserving Oma metrics and accessible captionless groups.
+- Retained RTL geometry assertions using actual accessible group bounds; print preview expects the upstream Sheet indicator. The no-proofing fixture uses a private-use tag instead of assuming French dictionaries are absent. Production proofing and document engines are unchanged.
+- Exact logs, original failures and additional patches are retained for parent review. Changes are uncommitted. No native desktop startup, timings or visual acceptance are claimed without a usable display.
+- Locked release GUI and CLI builds passed after the full green gate. Cargo.lock remained unchanged from the transferred snapshot.

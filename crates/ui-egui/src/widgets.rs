@@ -1,6 +1,6 @@
 //! Ribbon widgets: large and small buttons, split buttons, groups, combo fields, colour grids.
 
-use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, Ui, pos2, vec2};
+use egui::{Color32, CornerRadius, Rect, Response, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::Value;
 
 use crate::theme::{Tokens, regular};

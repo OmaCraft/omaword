@@ -13,72 +13,48 @@ VARIANT = 'word'
 SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
 
 
-def scene():
-    # Shared dark tile, paper silhouette, and folded corner establish the family.
-    shapes = [
-        ('roundrect', (8, 8, 240, 240, 48), '#171c27'),
-        ('roundrect', (52, 48, 154, 168, 19), '#10151e'),  # quiet depth behind the sheet
-        ('roundrect', (48, 42, 154, 168, 17), '#f2f2ee'),
-        ('polygon', ([(158, 42), (202, 42), (202, 86)],), '#d9dfe3'),
-        ('polygon', ([(158, 42), (158, 86), (202, 86)],), '#e8e9e5'),
-    ]
-    if VARIANT == 'grid':
-        # A compact table with a single softly selected cell.
-        shapes += [
-            ('roundrect', (66, 91, 118, 92, 9), '#e1e5e2'),
-            ('rect', (66, 91, 118, 9), ACCENT),
-            ('rect', (66, 109, 118, 8), '#d8dedb'),
-            ('rect', (66, 129, 118, 8), '#d8dedb'),
-            ('rect', (66, 149, 118, 8), '#d8dedb'),
-            ('rect', (66, 169, 118, 8), '#d8dedb'),
-            ('rect', (66, 189, 118, 8), '#d8dedb'),
-            ('rect', (91, 109, 7, 88), '#d8dedb'),
-            ('rect', (116, 109, 7, 88), '#d8dedb'),
-            ('rect', (141, 109, 7, 88), '#d8dedb'),
-            ('roundrect', (151, 132, 29, 29, 5), ACCENT),
-            ('rect', (157, 138, 17, 5), '#eff7f2'),
-            ('rect', (157, 146, 17, 5), '#eff7f2'),
-        ]
-    elif VARIANT == 'deck':
-        # Three offset slide cards read as a small presentation stack.
-        shapes += [
-            ('roundrect', (58, 70, 128, 105, 12), '#9a5367'),
-            ('roundrect', (64, 63, 128, 105, 12), '#c98591'),
-            ('roundrect', (70, 56, 128, 105, 12), '#f7f3ef'),
-            ('roundrect', (82, 69, 104, 19, 7), ACCENT),
-            ('rect', (84, 104, 80, 7), '#d5d9dc'),
-            ('rect', (84, 120, 63, 7), '#d5d9dc'),
-            ('rect', (84, 136, 80, 7), '#d5d9dc'),
-            ('polygon', ([(127, 168), (141, 168), (145, 183), (123, 183)],), '#e4e2de'),
-            ('roundrect', (106, 181, 56, 9, 4), '#c98591'),
-        ]
-    elif VARIANT == 'word':
-        # Calm manuscript lines and a blue margin accent.
-        shapes += [
-            ('roundrect', (66, 90, 118, 104, 8), '#e1e5e8'),
-            ('rect', (66, 90, 8, 104), ACCENT),
-            ('roundrect', (87, 103, 81, 8, 4), '#596474'),
-            ('roundrect', (87, 123, 69, 8, 4), '#8a939c'),
-            ('roundrect', (87, 143, 81, 8, 4), '#8a939c'),
-            ('roundrect', (87, 163, 52, 8, 4), '#8a939c'),
-            ('roundrect', (87, 183, 69, 8, 4), '#8a939c'),
-        ]
+PALETTES = {
+    'omagrid': ('#173E34', '#287657', '#85D9A5'),
+    'omaword': ('#192F52', '#315C9B', '#9EC8F9'),
+    'omadeck': ('#4D2536', '#923F58', '#F2A5A8'),
+    'omanotes': ('#36234F', '#72469E', '#CEA9F4'),
+    'omacraft': ('#242B3A', '#3A4559', '#C5D1DF'),
+}
+
+def scene(name="omaword"):
+    dark, mid, light = PALETTES[name]
+    paper = '#FAF6EB'
+    s = [('roundrect', (8,8,240,240,52), dark),
+         ('roundrect', (16,16,224,224,45), mid),
+         ('roundrect', (24,24,208,208,38), dark)]
+    if name == 'omacraft':
+        for x,y,color in [(54,54,'#85D9A5'),(132,54,'#9EC8F9'),(54,132,'#F2A5A8'),(132,132,'#CEA9F4')]:
+            s += [('roundrect',(x,y,70,70,19),color)]
+        s += [('polygon', ([(104,104),(152,104),(152,152),(104,152)],), dark)]
+        return s
+    # A single folded document, shared silhouette. Open upper corner is our family mark.
+    s += [('roundrect',(59,48,144,168,18),'#101722'),
+          ('polygon', ([(52,42),(151,42),(194,85),(194,202),(52,202)],),paper),
+          ('polygon', ([(151,42),(151,85),(194,85)],),light)]
+    if name == 'omagrid':
+        for row in range(3):
+            for col in range(3):
+                s += [('roundrect',(71+35*col,103+28*row,28,21,4),mid if row==0 else light)]
+        s += [('roundrect',(106,131,28,21,4),dark)]
+    elif name == 'omaword':
+        s += [('roundrect',(72,102,45,12,4),mid)]
+        for y,w in [(128,103),(150,103),(172,70)]:
+            s += [('roundrect',(72,y,w,8,4),mid)]
+    elif name == 'omadeck':
+        s += [('roundrect',(69,103,108,71,7),mid),
+              ('rect',(82,142,17,19),paper),('rect',(107,128,17,33),light),
+              ('rect',(132,115,17,46),paper),('roundrect',(102,183,42,6,3),mid)]
     else:
-        # Notes gets an unmistakable binding rail and a few generous writing strokes.
-        shapes += [
-            ('roundrect', (65, 88, 120, 105, 8), '#e2e2e7'),
-            ('roundrect', (64, 87, 14, 107, 7), ACCENT),
-            ('roundrect', (90, 105, 78, 9, 4), '#596474'),
-            ('roundrect', (90, 127, 78, 9, 4), '#8a8995'),
-            ('roundrect', (90, 149, 64, 9, 4), '#8a8995'),
-            ('roundrect', (90, 171, 78, 9, 4), '#8a8995'),
-            ('roundrect', (90, 193, 48, 7, 3), '#8a8995'),
-            ('roundrect', (67, 105, 8, 7, 3), '#f4eefa'),
-            ('roundrect', (67, 127, 8, 7, 3), '#f4eefa'),
-            ('roundrect', (67, 149, 8, 7, 3), '#f4eefa'),
-            ('roundrect', (67, 171, 8, 7, 3), '#f4eefa'),
-        ]
-    return shapes
+        s += [('rect',(52,42,13,160),mid),('roundrect',(78,105,24,24,5),mid),
+              ('roundrect',(113,112,60,8,4),mid),('roundrect',(78,147,95,8,4),mid),
+              ('roundrect',(78,169,65,8,4),mid),('roundrect',(185,104,16,31,5),light),
+              ('roundrect',(185,143,16,31,5),mid)]
+    return s
 
 
 def inside(shape, x, y):

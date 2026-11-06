@@ -21,6 +21,32 @@ const PAGES: [(&str, &str, &str); 11] = [
     ("options", "Options", "options"),
 ];
 
+/// The Backstage pages' keytips, as Word's (#4960): Alt, F, then a letter. V is Word's older
+/// Print Preview key, which opens the Print page too.
+const KEYTIPS: [(&str, &str); 11] = [
+    ("home", "H"),
+    ("new", "N"),
+    ("open", "O"),
+    ("info", "I"),
+    ("save", "S"),
+    ("saveAs", "A"),
+    ("print", "P"),
+    ("print", "V"),
+    ("export", "E"),
+    ("close", "C"),
+    ("options", "T"),
+];
+
+/// The page a Backstage keytip letter opens.
+pub(crate) fn keytip_page(letter: &str) -> Option<&'static str> {
+    KEYTIPS.iter().find(|(_, l)| *l == letter).map(|(page, _)| *page)
+}
+
+/// The badge a Backstage page shows while its keytips do (the first letter listed).
+fn keytip_letter(page: &str) -> Option<&'static str> {
+    KEYTIPS.iter().find(|(p, _)| *p == page).map(|(_, l)| *l)
+}
+
 /// The Backstage back chevron's centre on macOS (#1873): beside the traffic lights in a
 /// window (the title bar's content edge), at the plain control inset in full screen, where the
 /// lights aren't docked top-left and the reserved offset would leave dead space.
@@ -46,12 +72,13 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     } else {
         (t.nav, egui::Color32::WHITE, egui::Color32::from_black_alpha(46))
     };
-    egui::Panel::left("backstage_nav")
+    crate::rtl::start_panel("backstage_nav")
         .exact_size(NAV_W)
         // Fixed width, as in Word: without this egui shows a resize handle that does nothing (#502).
         .resizable(false)
         .frame(egui::Frame::NONE.fill(nav_bg).inner_margin(egui::Margin { left: 0, right: 0, top: if mac { 0 } else { 10 }, bottom: 10 }))
         .show(ui, |ui| {
+            let rtl = crate::rtl::on();
             ui.spacing_mut().item_spacing.y = 0.0;
             let back = if mac {
                 // macOS (#222): the Backstage covers the title bar, so its top band is the title
@@ -62,7 +89,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
                 // The chevron's stroke starts at the content edge.
-                let c = back_chevron_c(band.min.x, band.center().y, app.session.view.full_screen, app.mac_titlebar.content_left);
+                let c = if rtl {
+                    pos2(band.max.x - 26.0, band.center().y)
+                } else {
+                    back_chevron_c(band.min.x, band.center().y, app.session.view.full_screen, app.mac_titlebar.content_left)
+                };
                 let resp = ui.interact(Rect::from_center_size(c, vec2(22.0, band.height())), ui.scope_id().with("backstage_back"), Sense::click());
                 icons::paint(ui.painter(), Rect::from_center_size(c, vec2(18.0, 18.0)), "chevronLeft", nav_text, nav_text);
                 resp
@@ -137,27 +168,29 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             });
         });
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.ribbon)).show(ui, |ui| {
-        // The Print page fills the pane and scrolls its settings and its preview itself (#1156).
-        if app.ui.backstage_page == "print" {
-            egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| export_page(app, ui));
-            return;
-        }
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| {
-                ui.set_max_width(CONTENT_W);
-                match app.ui.backstage_page.as_str() {
-                    "home" => home_page(app, ui),
-                    "new" => new_page(app, ui),
-                    "open" => open_page(app, ui),
-                    "saveAs" => save_as_page(app, ui),
-                    "info" => info_page(app, ui),
-                    "recover" => recovery_page(app, ui),
-                    "print" | "export" => export_page(app, ui),
-                    "options" => crate::options::page(app, ui),
-                    _ => home_page(app, ui),
-                }
+        crate::rtl::root(ui, |ui| {
+            // The Print page fills the pane and scrolls its settings and its preview itself (#1156).
+            if app.ui.backstage_page == "print" {
+                egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| export_page(app, ui));
+                return;
+            }
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                egui::Frame::NONE.inner_margin(CONTENT_MARGIN).show(ui, |ui| {
+                    ui.set_max_width(CONTENT_W);
+                    match app.ui.backstage_page.as_str() {
+                        "home" => home_page(app, ui),
+                        "new" => new_page(app, ui),
+                        "open" => open_page(app, ui),
+                        "saveAs" => save_as_page(app, ui),
+                        "info" => info_page(app, ui),
+                        "recover" => recovery_page(app, ui),
+                        "print" | "export" => export_page(app, ui),
+                        "options" => crate::options::page(app, ui),
+                        _ => home_page(app, ui),
+                    }
+                });
             });
-        });
+        })
     });
 }
 
@@ -174,7 +207,14 @@ const CONTENT_W: f32 = 760.0;
 fn nav_page(app: &WordApp, ui: &mut Ui, id: &str, label: &str, icon: &str, colors: (egui::Color32, egui::Color32)) -> bool {
     let on = app.has_document() || works_without_document(id);
     let selected = app.ui.backstage_page == id;
-    nav_item(ui, icon, tl!(label), selected, on, colors).clicked() && on
+    let resp = nav_item(ui, icon, tl!(label), selected, on, colors);
+    if on
+        && app.ui.keytips == crate::keytips::Phase::Backstage
+        && let Some(letter) = keytip_letter(id)
+    {
+        crate::keytips::badge(ui, resp.rect, letter);
+    }
+    resp.clicked() && on
 }
 
 /// OmaGrid's side-column row: 38 high, icon centred at x + 30, label (regular 14) at x + 50; the
@@ -227,7 +267,7 @@ fn recovery_page(app: &mut WordApp, ui: &mut Ui) {
         ui.label(tl!("No recovery copies."));
     }
     let busy = app.session.recovery_busy();
-    egui::Grid::new("recovery_documents").min_col_width(180.0).spacing(vec2(24.0, 16.0)).show(ui, |ui| {
+    crate::rtl::grid(ui, egui::Grid::new("recovery_documents").min_col_width(180.0).spacing(vec2(24.0, 16.0)), |ui| {
         if !documents.is_empty() {
             ui.strong(tl!("Document"));
             ui.strong(tl!("Recovery copy"));
@@ -261,6 +301,40 @@ fn recovery_page(app: &mut WordApp, ui: &mut Ui) {
     });
 }
 
+/// Opens a side-menu page, as a click on it (or its keytip) does. Without a document only the
+/// pages that work without one open.
+pub(crate) fn go_to_page(app: &mut WordApp, id: &str) {
+    if !app.has_document() && !works_without_document(id) {
+        return;
+    }
+    match id {
+        // A document without a file goes to the Save As page (as in Word) instead
+        // of `file.save`, which would also open the native Save As dialog.
+        // In the browser a save is a download, so it saves right away.
+        "save" if app.session.path.is_none() && app.services.download.is_none() => {
+            app.ui.backstage_page = "saveAs".into();
+        }
+        "save" => {
+            let r = app.run("file.save", json!({}));
+            if r.is_ok_and(|v| v.get("saved").and_then(serde_json::Value::as_bool) == Some(true) || v.get("downloaded").is_some()) {
+                app.ui.backstage = false;
+                app.canvas.want_focus = true;
+            } else {
+                app.ui.backstage_page = "saveAs".into();
+            }
+        }
+        "saveAs" => {
+            app.ui.backstage_page = "saveAs".into();
+        }
+        // Not a page: `file.close` asks Save / Don't Save / Cancel first when there
+        // are unsaved changes, and Cancel leaves the Backstage where it was.
+        "close" => {
+            let _ = app.run("file.close", json!({}));
+        }
+        _ => app.ui.backstage_page = id.into(),
+    }
+}
+
 /// The Backstage pages that work while no document is open (#1129).
 fn works_without_document(page: &str) -> bool {
     matches!(page, "home" | "new" | "open" | "options")
@@ -285,7 +359,7 @@ fn section(ui: &mut Ui, s: &str) {
 /// region-aware page preview, and creates a document from the template on click.
 fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
     let t = Tokens::get(ui.ctx());
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         // The thumbnail and its caption are one button named by the caption, so a screen reader
         // announces "Blank document, button" rather than unnamed text (#3176); the caption opens
         // the template too, as in Word.
@@ -521,7 +595,7 @@ fn matching_personal(query: &str, list: &[PersonalTemplate]) -> Vec<PersonalTemp
 /// click makes a new document from it.
 fn personal_tile(ui: &mut Ui, app: &mut WordApp, p: &PersonalTemplate) {
     let t = Tokens::get(ui.ctx());
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         ui.spacing_mut().item_spacing.y = 0.0;
         ui.set_max_width(150.0);
         let (r, resp) = ui.allocate_exact_size(vec2(150.0, 194.0), Sense::click());
@@ -576,6 +650,8 @@ fn open_list(app: &mut WordApp, ui: &mut Ui) {
     let names = shown.iter().map(|p| file_name(p)).collect::<Vec<_>>();
     for (p, name) in shown.iter().zip(&names) {
         let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width().min(700.0), 40.0), Sense::click());
+        // The row shows a name and a path that may not fit: the path in full is its tooltip.
+        let resp = resp.on_hover_text(crate::i18n::isolate_path(p));
         // Two documents with the same file name are told apart by their path, as on screen.
         let spoken = if names.iter().filter(|n| *n == name).count() > 1 { format!("{name}, {p}") } else { name.clone() };
         resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), &spoken));

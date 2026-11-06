@@ -21,13 +21,14 @@ mod graphics;
 mod logging;
 mod print;
 mod region;
+mod startup_trace;
 #[cfg(target_os = "macos")]
 mod traffic_lights;
 
 use wordcraft_engine::Session;
 use wordcraft_ui_egui::{
     Services, UiState, WordApp,
-    window_geometry::{RawWindowState, WindowGeometry, take_rescue},
+    window_geometry::{RawWindowState, WindowGeometry, reachable, take_rescue},
 };
 
 /// The app, the restored window geometry (or, with none, the default: no position) until the
@@ -54,7 +55,13 @@ impl eframe::App for App {
         apple_events::poll(&self.5, &mut self.0, ctx);
         self.0.logic(ctx);
         self.3.show(frame);
-        let window = self.4;
+        let mut window = self.4;
+        // Only until the off-screen check below has run: it is the one reader.
+        if self.1.is_some() {
+            let (on_a_monitor, primary_monitor_rect) = monitor_geometry(frame, ctx.pixels_per_point());
+            window.on_a_monitor = on_a_monitor;
+            window.primary_monitor_rect = primary_monitor_rect;
+        }
         // A window that doesn't fit on its screen (the default size on a laptop) shrinks to fit
         // there, so all of the scroll bar can be dragged (#1215). Checked on the frame that first
         // knows the monitor: the off-screen check below takes the pending geometry then.
@@ -113,6 +120,7 @@ impl eframe::App for App {
         self.0.raw_input_hook(ctx, raw);
     }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        startup_trace::first_ui();
         self.0.ui(ui);
         self.3.show(frame);
     }
@@ -124,6 +132,37 @@ impl eframe::App for App {
             key_file.remove();
         }
     }
+}
+
+/// Whether a grippable part of the window is on a monitor, and the primary monitor bounds.
+/// Winit reports physical pixels; egui positions use points. `None` where the platform cannot
+/// report the window or primary monitor (Wayland, headless).
+fn monitor_geometry(frame: &eframe::Frame, pixels_per_point: f32) -> (Option<bool>, Option<egui::Rect>) {
+    let Some(w) = frame.winit_window() else {
+        return (None, None);
+    };
+    if !pixels_per_point.is_finite() || pixels_per_point <= 0.0 {
+        return (None, None);
+    }
+    let Some(pos) = w.outer_position().ok() else {
+        return (None, None);
+    };
+    let size = w.outer_size();
+    let physical_rect = |(x, y): (i32, i32), (width, height): (u32, u32)| {
+        egui::Rect::from_min_size(egui::pos2(x as f32, y as f32), egui::vec2(width as f32, height as f32))
+    };
+    let monitors: Vec<egui::Rect> =
+        w.available_monitors().map(|m| physical_rect((m.position().x, m.position().y), (m.size().width, m.size().height))).collect();
+    let on_a_monitor = (!monitors.is_empty()).then(|| reachable(physical_rect((pos.x, pos.y), (size.width, size.height)), &monitors));
+    let primary_monitor_rect = w.primary_monitor().map(|m| {
+        let pos = m.position();
+        let size = m.size();
+        egui::Rect::from_min_size(
+            egui::pos2(pos.x as f32, pos.y as f32) / pixels_per_point,
+            egui::vec2(size.width as f32, size.height as f32) / pixels_per_point,
+        )
+    });
+    (on_a_monitor, primary_monitor_rect)
 }
 
 /// Quit the way Command-Q does, on the next turn of the main queue.
@@ -311,9 +350,16 @@ OPTIONS:
   -h, --help          print this help
 ";
 
-/// The commit the build came from (short), or `dev`.
-fn build_sha() -> &'static str {
-    option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or("dev")
+/// The commit the build came from (short), when the package supplied one.
+fn build_sha() -> Option<&'static str> {
+    option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s))
+}
+
+fn upstream_build() -> String {
+    match build_sha() {
+        Some(sha) => format!("upstream WordCraft {}; {sha}", env!("CARGO_PKG_VERSION")),
+        None => format!("upstream WordCraft {}", env!("CARGO_PKG_VERSION")),
+    }
 }
 
 /// The arguments as text, and apart the files whose names aren't valid Unicode, such as a Latin-1
@@ -381,6 +427,7 @@ fn x11_override(value: Option<&std::ffi::OsStr>) -> bool {
 }
 
 fn main() -> eframe::Result {
+    startup_trace::mark("main-entry");
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     logging::install_panic_hook();
@@ -404,12 +451,7 @@ fn main() -> eframe::Result {
             }
             "--sample" => sample = true,
             "--version" => {
-                println!(
-                    "OmaWord {} (upstream WordCraft {}; {})",
-                    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../OMA_VERSION")).trim_ascii(),
-                    env!("CARGO_PKG_VERSION"),
-                    build_sha()
-                );
+                println!("OmaWord {} ({})", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../OMA_VERSION")).trim_ascii(), upstream_build());
                 return Ok(());
             }
             // Before the window opens (#968). Unlike `print!`, a closed stdout can't panic.
@@ -434,10 +476,9 @@ fn main() -> eframe::Result {
         match log_dir().filter(|_| prefs_enabled()) {
             Some(dir) => match logger.attach_dir(&dir) {
                 Ok(path) => log::info!(
-                    "OmaWord {} (upstream WordCraft {}; {}), log file {}",
+                    "OmaWord {} ({}), log file {}",
                     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../OMA_VERSION")).trim_ascii(),
-                    env!("CARGO_PKG_VERSION"),
-                    build_sha(),
+                    upstream_build(),
                     path.display()
                 ),
                 // Standard error only by now (`attach_dir` gave up on the file); unlike `eprintln!`, never panics.
@@ -469,7 +510,9 @@ fn main() -> eframe::Result {
     // Intel Macs: Metal's compiler aborts on wgpu's indirect-validation shaders (#2652).
     #[cfg(target_os = "macos")]
     graphics::configure_indirect_validation(&mut options, graphics::skips_indirect_validation(true, cfg!(target_arch = "x86_64")));
+    startup_trace::mark("user-fonts-begin");
     load_user_fonts();
+    startup_trace::mark("user-fonts-end");
     // Windows opened for further documents start like the first one, before its saved place.
     let window_builder = options.viewport.clone();
     let restored = saved_window();
@@ -493,10 +536,12 @@ fn main() -> eframe::Result {
     let apple_events = apple_events::AppleEvents::install();
     #[cfg(target_os = "macos")]
     let apple_events = &apple_events;
+    startup_trace::mark("run-native-entry");
     eframe::run_native(
         "OmaWord",
         options,
         Box::new(move |cc| {
+            startup_trace::mark("app-creator-entry");
             // The system region picks the new document's paper, the units and the decimal
             // separator (#838).
             let region = region::system();
@@ -508,11 +553,13 @@ fn main() -> eframe::Result {
 
             load_prefs(&mut app);
             load_user_dictionary(&mut app);
+            // Language packs from the suite's font store; an Install click is the person's own.
+            wordcraft_engine::packs::use_font_store(true);
             // A region chosen in File › Options replaces the system's for the first blank
             // document too (#838).
             if !sample && app.session.prefs.region.is_some() {
                 let doc = app.session.blank_document();
-                app.session.set_document(doc);
+                app.replace_startup_document(doc);
             }
             app.watch_desktop_theme(&cc.egui_ctx);
             if prefs_enabled()
@@ -552,6 +599,7 @@ fn main() -> eframe::Result {
             for f in other_files {
                 open_non_unicode(&mut app, &f);
             }
+            startup_trace::mark("app-creator-exit");
             Ok(Box::new(App(
                 app,
                 // With nothing restored, the window the system placed is checked all the same.

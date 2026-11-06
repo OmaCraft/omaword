@@ -45,12 +45,18 @@ use home::home;
 use home::painter_double_click;
 use insert::insert;
 #[cfg(test)]
+pub(crate) use language::PROOFING_LANGUAGES;
+#[cfg(test)]
+pub(crate) use language::all_languages;
+#[cfg(test)]
 use language::language_checks;
 #[cfg(test)]
-pub(crate) use language::{PROOFING_LANGUAGES, language_name};
+pub(crate) use language::short_languages;
+pub(crate) use language::sort_key;
 pub(crate) use language::{
-    caret_language, caret_language_proofed, caret_missing_dictionary, caret_no_proof, caret_unreadable_dictionary, language_menu,
+    caret_lang_tag, caret_language, caret_language_proofed, caret_missing_dictionary, caret_no_proof, caret_unreadable_dictionary, language_menu,
 };
+pub(crate) use language::{display_name, language_list, language_name, same_language, tag_for_pack};
 use layout::layout;
 #[cfg(test)]
 use layout::{columns_items, margins_items, orientation_items};
@@ -144,120 +150,132 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         .show_separator_line(collapsed)
         .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 18, right: 10, top: 1, bottom: if collapsed { 3 } else { 1 } }))
         .show(ui, |ui| {
-            ui.horizontal_centered(|ui| {
-                ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
-                let labels: Vec<&str> = tabs.iter().map(|(tab, custom)| if *custom { tab.as_str() } else { tl!(tab) }).collect();
-                let specs: Vec<TabSpec> = tabs
-                    .iter()
-                    .zip(&labels)
-                    .map(|((tab, custom), shown)| TabSpec {
-                        text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), tab_font(*tab == app.ui.tab), t.text).size().x),
-                        file: tab == "File",
-                        active: *tab == app.ui.tab,
-                        contextual: !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab.as_str()),
-                    })
-                    .collect();
-                // Share, Editing and Comments are in the title bar now (ui-consistency spec): the tabs have
-                // the whole strip, less its right margin.
-                let plan = plan_strip(&specs, [0.0; 3], ui.available_width(), MORE_TABS_W + 2.0);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        // The tabs that don't fit go into a » menu at the end of the strip (#897, #2026).
-                        for (i, ((tab, custom), _)) in tabs.iter().zip(&plan.fits).enumerate().filter(|(_, (_, fits))| **fits) {
-                            let (tab, custom) = (tab.as_str(), *custom);
-                            let contextual = !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab);
-                            // A custom tab's name is the user's own text: shown as typed.
-                            let shown = if custom { tab } else { tl!(tab) };
-                            let w = plan.widths.get(i).copied().unwrap_or(0.0) - 2.0;
-                            let cut = specs.get(i).is_some_and(|sp| sp.text_w + plan.pad > w + 0.5);
-                            let (r, resp) = ui.allocate_exact_size(vec2(w, 30.0), Sense::click());
-                            if app.ui.keytips == crate::keytips::Phase::Tabs {
-                                crate::keytips::record_tab(r, tab, &app.ui.keytip_prefix, &mut app.keytip_rects);
-                            } else if app.ui.keytips == crate::keytips::Phase::Legacy {
-                                // Every tab: they only place the legacy keys' hint (#1697).
-                                crate::keytips::record_tab(r, tab, "", &mut app.keytip_rects);
-                            }
-                            let active = app.ui.tab == tab && !app.ui.backstage;
-                            resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, active, shown));
-                            if resp.hovered() && !active {
-                                ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
-                            }
-                            // File and contextual tabs in the accent's text colour, the active tab
-                            // bold in `text`, the others regular in `text_dim` (OmaGrid).
-                            let color = if tab == "File" || contextual {
-                                t.accent_text
-                            } else if active {
-                                t.text
+            ui.with_layout(
+                if crate::rtl::on() { egui::Layout::right_to_left(egui::Align::Center) } else { egui::Layout::left_to_right(egui::Align::Center) },
+                |ui| {
+                    ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
+                    let labels: Vec<&str> = tabs.iter().map(|(tab, custom)| if *custom { tab.as_str() } else { tl!(tab) }).collect();
+                    let specs: Vec<TabSpec> = tabs
+                        .iter()
+                        .zip(&labels)
+                        .map(|((tab, custom), shown)| TabSpec {
+                            text_w: ui.ctx().fonts_mut(|f| f.layout_no_wrap(shown.to_string(), tab_font(*tab == app.ui.tab), t.text).size().x),
+                            file: tab == "File",
+                            active: *tab == app.ui.tab,
+                            contextual: !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab.as_str()),
+                        })
+                        .collect();
+                    // Share, Editing and Comments are in the title bar now (ui-consistency spec): the tabs have
+                    // the whole strip, less its right margin.
+                    let plan = plan_strip(&specs, [0.0; 3], ui.available_width(), MORE_TABS_W + 2.0);
+                    ui.with_layout(crate::rtl::far_side(ui, egui::Align::Center), |ui| {
+                        ui.with_layout(
+                            if crate::rtl::on() {
+                                egui::Layout::right_to_left(egui::Align::Center)
                             } else {
-                                t.text_dim
-                            };
-                            let font = tab_font(active);
-                            if cut {
-                                let mut job =
-                                    egui::text::LayoutJob::single_section(shown.to_string(), egui::text::TextFormat::simple(font.clone(), color));
-                                job.wrap = egui::text::TextWrapping {
-                                    max_width: (w - plan.pad).max(1.0),
-                                    max_rows: 1,
-                                    break_anywhere: true,
-                                    overflow_character: Some('…'),
-                                };
-                                let galley = ui.painter().layout_job(job);
-                                ui.painter().galley(r.center() - galley.size() / 2.0, galley, color);
-                            } else {
-                                ui.painter().text(r.center(), Align2::CENTER_CENTER, shown, font, color);
-                            }
-                            let resp = if cut { resp.on_hover_text(shown) } else { resp };
-                            if active {
-                                // OmaGrid's underline: as wide as the label, kept within 20–40 pt.
-                                let label_w = specs.get(i).map_or(w - plan.pad, |sp| sp.text_w.min(w - plan.pad));
-                                let u = Rect::from_center_size(pos2(r.center().x, r.max.y - 3.0), vec2(label_w.clamp(20.0, 40.0), 3.0));
-                                ui.painter().rect_filled(u, 1.5, t.accent);
-                            }
-                            if resp.clicked() {
-                                let _ = app.run("ui.tab", json!({"tab": tab}));
-                            }
-                            if resp.double_clicked() && tab != "File" {
-                                let _ = app.run("ui.collapseRibbon", json!({}));
-                            }
-                            resp.context_menu(|ui| crate::widgets::customize_menu_items(ui, app));
-                        }
-                        let left_out: Vec<(&str, &str)> = tabs
-                            .iter()
-                            .zip(&labels)
-                            .zip(&plan.fits)
-                            .filter(|(_, fits)| !**fits)
-                            .map(|(((tab, _), shown), _)| (tab.as_str(), *shown))
-                            .collect();
-                        if !left_out.is_empty() {
-                            let (r, resp) = ui.allocate_exact_size(vec2(MORE_TABS_W, 30.0), Sense::click());
-                            if resp.hovered() {
-                                ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
-                            }
-                            // The active tab is in the menu: the button says so.
-                            let holds_active = left_out.iter().any(|(tab, _)| *tab == app.ui.tab);
-                            ui.painter().text(
-                                r.center(),
-                                Align2::CENTER_CENTER,
-                                "»",
-                                tab_font(false),
-                                if holds_active { t.accent_text } else { t.text_dim },
-                            );
-                            // "»" means nothing read aloud: the button says what it holds.
-                            let more = tl!("More tabs");
-                            resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, more));
-                            let resp = resp.on_hover_text(more);
-                            egui::Popup::menu(&resp).show(|ui| {
-                                for (tab, shown) in left_out {
-                                    if ui.selectable_label(app.ui.tab == tab, shown).clicked() {
-                                        let _ = app.run("ui.tab", json!({"tab": tab}));
-                                        ui.close();
+                                egui::Layout::left_to_right(egui::Align::Center)
+                            },
+                            |ui| {
+                                // The tabs that don't fit go into a » menu at the end of the strip (#897, #2026).
+                                for (i, ((tab, custom), _)) in tabs.iter().zip(&plan.fits).enumerate().filter(|(_, (_, fits))| **fits) {
+                                    let (tab, custom) = (tab.as_str(), *custom);
+                                    let contextual = !custom && wordcraft_engine::ribbon::CONTEXTUAL_TABS.contains(&tab);
+                                    // A custom tab's name is the user's own text: shown as typed.
+                                    let shown = if custom { tab } else { tl!(tab) };
+                                    let w = plan.widths.get(i).copied().unwrap_or(0.0) - 2.0;
+                                    let cut = specs.get(i).is_some_and(|sp| sp.text_w + plan.pad > w + 0.5);
+                                    let (r, resp) = ui.allocate_exact_size(vec2(w, 30.0), Sense::click());
+                                    if app.ui.keytips == crate::keytips::Phase::Tabs {
+                                        crate::keytips::record_tab(r, tab, &app.ui.keytip_prefix, &mut app.keytip_rects);
+                                    } else if app.ui.keytips == crate::keytips::Phase::Legacy {
+                                        // Every tab: they only place the legacy keys' hint (#1697).
+                                        crate::keytips::record_tab(r, tab, "", &mut app.keytip_rects);
                                     }
+                                    let active = app.ui.tab == tab && !app.ui.backstage;
+                                    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, active, shown));
+                                    if resp.hovered() && !active {
+                                        ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
+                                    }
+                                    // File and contextual tabs in the accent's text colour, the active tab
+                                    // bold in `text`, the others regular in `text_dim` (OmaGrid).
+                                    let color = if tab == "File" || contextual {
+                                        t.accent_text
+                                    } else if active {
+                                        t.text
+                                    } else {
+                                        t.text_dim
+                                    };
+                                    let font = tab_font(active);
+                                    if cut {
+                                        let mut job = egui::text::LayoutJob::single_section(
+                                            shown.to_string(),
+                                            egui::text::TextFormat::simple(font.clone(), color),
+                                        );
+                                        job.wrap = egui::text::TextWrapping {
+                                            max_width: (w - plan.pad).max(1.0),
+                                            max_rows: 1,
+                                            break_anywhere: true,
+                                            overflow_character: Some('…'),
+                                        };
+                                        let galley = ui.painter().layout_job(job);
+                                        ui.painter().galley(r.center() - galley.size() / 2.0, galley, color);
+                                    } else {
+                                        ui.painter().text(r.center(), Align2::CENTER_CENTER, shown, font, color);
+                                    }
+                                    let resp = if cut { resp.on_hover_text(shown) } else { resp };
+                                    if active {
+                                        // OmaGrid's underline: as wide as the label, kept within 20–40 pt.
+                                        let label_w = specs.get(i).map_or(w - plan.pad, |sp| sp.text_w.min(w - plan.pad));
+                                        let u = Rect::from_center_size(pos2(r.center().x, r.max.y - 3.0), vec2(label_w.clamp(20.0, 40.0), 3.0));
+                                        ui.painter().rect_filled(u, 1.5, t.accent);
+                                    }
+                                    if resp.clicked() {
+                                        let _ = app.run("ui.tab", json!({"tab": tab}));
+                                    }
+                                    if resp.double_clicked() && tab != "File" {
+                                        let _ = app.run("ui.collapseRibbon", json!({}));
+                                    }
+                                    resp.context_menu(|ui| crate::widgets::customize_menu_items(ui, app));
                                 }
-                            });
-                        }
+                                let left_out: Vec<(&str, &str)> = tabs
+                                    .iter()
+                                    .zip(&labels)
+                                    .zip(&plan.fits)
+                                    .filter(|(_, fits)| !**fits)
+                                    .map(|(((tab, _), shown), _)| (tab.as_str(), *shown))
+                                    .collect();
+                                if !left_out.is_empty() {
+                                    let (r, resp) = ui.allocate_exact_size(vec2(MORE_TABS_W, 30.0), Sense::click());
+                                    if resp.hovered() {
+                                        ui.painter().rect_filled(r.shrink2(vec2(2.0, 4.0)), 5.0, t.hover);
+                                    }
+                                    // The active tab is in the menu: the button says so.
+                                    let holds_active = left_out.iter().any(|(tab, _)| *tab == app.ui.tab);
+                                    ui.painter().text(
+                                        r.center(),
+                                        Align2::CENTER_CENTER,
+                                        "»",
+                                        tab_font(false),
+                                        if holds_active { t.accent_text } else { t.text_dim },
+                                    );
+                                    // "»" means nothing read aloud: the button says what it holds.
+                                    let more = tl!("More tabs");
+                                    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, more));
+                                    let resp = resp.on_hover_text(more);
+                                    egui::Popup::menu(&resp).show(|ui| {
+                                        for (tab, shown) in left_out {
+                                            if ui.selectable_label(app.ui.tab == tab, shown).clicked() {
+                                                let _ = app.run("ui.tab", json!({"tab": tab}));
+                                                ui.close();
+                                            }
+                                        }
+                                    });
+                                }
+                            },
+                        );
                     });
-                });
-            });
+                },
+            );
         });
     if app.ui.ribbon_collapsed {
         return;
@@ -285,82 +303,111 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             }
             let bg = ui.interact(card, ui.scope_id().with("ribbon_background"), Sense::click());
             bg.context_menu(|ui| crate::widgets::customize_menu_items(ui, app));
-            ui.scope_builder(egui::UiBuilder::new().max_rect(card.shrink2(vec2(10.0, 6.0))), |ui| {
-                let entry = user_tabs.iter().find(|e| e.name == app.ui.tab);
-                crate::ribbon_fit::begin(ui.ctx(), &app.ui.tab, ui.available_width() - 4.0);
-                // 0.37 keeps the scroll offset private: an edge-chevron click leaves a one-frame
-                // request here and the next scroll area is built at that offset.
-                let pending_id = ui.scope_id().with("ribbon_scroll_pending");
-                let pending = ui.data(|d| d.get_temp::<f32>(pending_id));
-                let mut area = egui::ScrollArea::horizontal().scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden);
-                if let Some(x) = pending {
-                    area = area.horizontal_scroll_offset(x);
-                }
-                let scroll = area.show(ui, |ui| {
-                    ui.horizontal_top(|ui| {
-                        ui.spacing_mut().item_spacing = vec2(2.0, 2.0);
-                        match entry {
-                            // Every tab hidden: nothing to show.
-                            Some(e) if e.hidden => return,
-                            Some(e) if e.custom => return custom_groups(app, ui, &e.groups),
-                            _ => {}
-                        }
-                        match app.ui.tab.as_str() {
-                            "Home" => home(app, ui),
-                            "Insert" => insert(app, ui),
-                            "Draw" => draw(app, ui),
-                            "Design" => design(app, ui),
-                            "Layout" => layout(app, ui),
-                            "References" => references(app, ui),
-                            "Mailings" => mailings(app, ui),
-                            "Review" => review(app, ui),
-                            "View" => view(app, ui),
-                            "Developer" => developer(app, ui),
-                            "Zotero" => zotero(app, ui),
-                            "Help" => help(app, ui),
-                            "Table Design" => table_design(app, ui),
-                            "Table Layout" => table_layout(app, ui),
-                            "Equation" if app.session.math.is_some() => crate::equation_tab::show(app, ui),
-                            "Picture Format" => picture_format(app, ui),
-                            "Shape Format" => shape_format(app, ui),
-                            "SmartArt Design" => smart_art_design(app, ui),
-                            "Outlining" => outlining(app, ui),
-                            "Chart Design" => chart_design(app, ui),
-                            _ => home(app, ui),
-                        }
-                        if let Some(e) = entry {
-                            custom_groups(app, ui, &e.groups);
+            ui.scope_builder(
+                egui::UiBuilder::new().max_rect(card.shrink2(vec2(10.0, 6.0))).layout(egui::Layout::top_down(if crate::rtl::on() {
+                    egui::Align::Max
+                } else {
+                    egui::Align::Min
+                })),
+                |ui| {
+                    let entry = user_tabs.iter().find(|e| e.name == app.ui.tab);
+                    crate::ribbon_fit::begin(ui.ctx(), &app.ui.tab, ui.available_width() - 4.0);
+                    // 0.37 keeps the scroll offset private: an edge-chevron click leaves a one-frame
+                    // request here and the next scroll area is built at that offset.
+                    let pending_id = ui.scope_id().with("ribbon_scroll_pending");
+                    let pending = ui.data(|d| d.get_temp::<f32>(pending_id));
+                    let mut area = egui::ScrollArea::horizontal()
+                        .stick_to_right(crate::rtl::on())
+                        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden);
+                    if let Some(x) = pending {
+                        area = area.horizontal_scroll_offset(x);
+                    }
+                    // ScrollArea offsets are nonnegative. Give the mirrored row its measured
+                    // width so overflow extends rightward in scroll coordinates, not below zero.
+                    let width_id =
+                        ui.scope_id().with(("rtl_ribbon_width", &app.ui.tab, crate::i18n::current().code(), ui.available_width().to_bits()));
+                    let scroll = area.show(ui, |ui| {
+                        let width = if crate::rtl::on() {
+                            ui.data(|d| d.get_temp::<f32>(width_id)).unwrap_or(ui.available_width()).max(ui.available_width())
+                        } else {
+                            ui.available_width()
+                        };
+                        let rect = Rect::from_min_size(ui.max_rect().min, vec2(width, ui.available_height()));
+                        let mut content = ui.new_child(egui::UiBuilder::new().max_rect(rect).layout(egui::Layout::top_down(if crate::rtl::on() {
+                            egui::Align::Max
+                        } else {
+                            egui::Align::Min
+                        })));
+                        let row = content.horizontal_top(|ui| {
+                            ui.spacing_mut().item_spacing = vec2(2.0, 2.0);
+                            match entry {
+                                // Every tab hidden: nothing to show.
+                                Some(e) if e.hidden => return,
+                                Some(e) if e.custom => return custom_groups(app, ui, &e.groups),
+                                _ => {}
+                            }
+                            match app.ui.tab.as_str() {
+                                "Home" => home(app, ui),
+                                "Insert" => insert(app, ui),
+                                "Draw" => draw(app, ui),
+                                "Design" => design(app, ui),
+                                "Layout" => layout(app, ui),
+                                "References" => references(app, ui),
+                                "Mailings" => mailings(app, ui),
+                                "Review" => review(app, ui),
+                                "View" => view(app, ui),
+                                "Developer" => developer(app, ui),
+                                "Zotero" => zotero(app, ui),
+                                "Help" => help(app, ui),
+                                "Table Design" => table_design(app, ui),
+                                "Table Layout" => table_layout(app, ui),
+                                "Equation" if app.session.math.is_some() => crate::equation_tab::show(app, ui),
+                                "Picture Format" => picture_format(app, ui),
+                                "Shape Format" => shape_format(app, ui),
+                                "SmartArt Design" => smart_art_design(app, ui),
+                                "Outlining" => outlining(app, ui),
+                                "Chart Design" => chart_design(app, ui),
+                                _ => home(app, ui),
+                            }
+                            if let Some(e) = entry {
+                                custom_groups(app, ui, &e.groups);
+                            }
+                        });
+                        ui.advance_cursor_after_rect(row.response.rect);
+                        if crate::rtl::on() {
+                            let width = row.response.rect.width();
+                            ui.data_mut(|d| d.insert_temp(width_id, width));
                         }
                     });
-                });
-                if pending.is_some() {
-                    let _ = ui.data_mut(|d| d.remove_temp::<f32>(pending_id));
-                }
-                crate::ribbon_fit::end(ui.ctx());
-                // The bar is hidden, so a row wider than the window would be clipped with no sign. Edge chevrons show
-                // where more is and scroll it on click. Every command also stays reachable through Search Commands.
-                let r = scroll.inner_rect;
-                let overflow = scroll.content_size.x - r.width();
-                let offset = scroll.state.clamped_offset().x;
-                let step = 160.0;
-                let mut next = None;
-                if offset > 1.0 {
-                    let left = Rect::from_min_max(r.left_top(), pos2(r.left() + 18.0, r.bottom()));
-                    if edge_cue(ui, left, "‹", tl!("Scroll ribbon left"), &t) {
-                        next = Some(offset - step);
+                    if pending.is_some() {
+                        let _ = ui.data_mut(|d| d.remove_temp::<f32>(pending_id));
                     }
-                }
-                if overflow - offset > 1.0 {
-                    let right = Rect::from_min_max(pos2(r.right() - 18.0, r.top()), r.right_bottom());
-                    if edge_cue(ui, right, "›", tl!("Scroll ribbon right"), &t) {
-                        next = Some(offset + step);
+                    crate::ribbon_fit::end(ui.ctx());
+                    // The bar is hidden, so a row wider than the window would be clipped with no sign. Edge chevrons show
+                    // where more is and scroll it on click. Every command also stays reachable through Search Commands.
+                    let r = scroll.inner_rect;
+                    let overflow = scroll.content_size.x - r.width();
+                    let offset = scroll.state.clamped_offset().x;
+                    let step = 160.0;
+                    let mut next = None;
+                    if offset > 1.0 {
+                        let left = Rect::from_min_max(r.left_top(), pos2(r.left() + 18.0, r.bottom()));
+                        if edge_cue(ui, left, "‹", tl!("Scroll ribbon left"), &t) {
+                            next = Some(offset - step);
+                        }
                     }
-                }
-                if let Some(x) = next {
-                    ui.data_mut(|d| d.insert_temp(pending_id, x.clamp(0.0, overflow.max(0.0))));
-                    ui.ctx().request_repaint();
-                }
-            });
+                    if overflow - offset > 1.0 {
+                        let right = Rect::from_min_max(pos2(r.right() - 18.0, r.top()), r.right_bottom());
+                        if edge_cue(ui, right, "›", tl!("Scroll ribbon right"), &t) {
+                            next = Some(offset + step);
+                        }
+                    }
+                    if let Some(x) = next {
+                        ui.data_mut(|d| d.insert_temp(pending_id, x.clamp(0.0, overflow.max(0.0))));
+                        ui.ctx().request_repaint();
+                    }
+                },
+            );
         });
 }
 
