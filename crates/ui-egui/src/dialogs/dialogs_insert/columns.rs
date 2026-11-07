@@ -1,4 +1,4 @@
-use super::{Color32, MeasureExt, Rect, Sense, Serialize, Stroke, Tokens, Ui, Value, WordApp, buttons, json, pos2, semibold, vec2};
+use super::{Color32, MeasureExt, Rect, Sense, Serialize, Stroke, Tokens, Ui, Value, WordApp, buttons, json, pos2, vec2};
 
 // ---------------------------------------------------------------------------------------------
 // Drop Cap (#2601)
@@ -50,14 +50,14 @@ impl DropCapForm {
 }
 
 pub(super) fn drop_cap_ui(app: &mut WordApp, ui: &mut Ui, f: &mut DropCapForm) -> bool {
-    ui.label(egui::RichText::new(tl!("Position")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Position")).font(omacraft_ui::Role::Section.font()));
     ui.horizontal(|ui| {
         for (v, l) in [("none", "None"), ("dropped", "Dropped"), ("margin", "In margin")] {
             ui.radio_value(&mut f.position, v.to_string(), tl!(l));
         }
     });
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(tl!("Options")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Options")).font(omacraft_ui::Role::Section.font()));
     let fams = app.previews.families();
     let preview = app.previews.font_preview_fn();
     let unit = crate::options::unit();
@@ -401,7 +401,7 @@ pub(super) fn columns_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ColumnsForm) ->
     let t = Tokens::get(ui.ctx());
     let unit = crate::options::unit();
     ui.set_width(420.0);
-    ui.label(egui::RichText::new(tl!("Presets")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Presets")).font(omacraft_ui::Role::Section.font()));
     let current = f.current_preset();
     ui.horizontal(|ui| {
         for (key, label, widths) in [
@@ -427,7 +427,7 @@ pub(super) fn columns_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ColumnsForm) ->
         ui.checkbox(&mut f.separator, tl!("Line between"));
     });
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(tl!("Width and spacing")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Width and spacing")).font(omacraft_ui::Role::Section.font()));
     crate::rtl::horizontal_top(ui, |ui| {
         crate::rtl::vertical(ui, |ui| {
             let mut changed = None;

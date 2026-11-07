@@ -20,7 +20,6 @@ use wordcraft_engine::cmd::objects::fit_size;
 
 use crate::WordApp;
 use crate::options::MeasureExt;
-use crate::theme::semibold;
 
 mod page;
 mod print;
@@ -159,7 +158,7 @@ fn buttons(ui: &mut Ui, ok: &str, ok_enabled: bool) -> (bool, bool) {
 
 fn heading(ui: &mut Ui, s: &str) {
     ui.add_space(4.0);
-    ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
 }
 
 /// Runs a dialog's command; a refusal shows in the status bar and keeps the dialog open.

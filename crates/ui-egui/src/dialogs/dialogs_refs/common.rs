@@ -1,8 +1,8 @@
-use super::{Sense, Tokens, Ui, semibold, vec2};
+use super::{Sense, Tokens, Ui, vec2};
 
 pub(super) fn heading(ui: &mut Ui, s: &str) {
     ui.add_space(4.0);
-    ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
 }
 
 /// A choice from `options` ((value, label)) in a drop-down, named by its visible label.

@@ -11,7 +11,7 @@ use wordcraft_engine::cmd::lists::{LEVELS, caret_list, level_json, levels_of};
 use crate::WordApp;
 use crate::dialogs::buttons;
 use crate::options::MeasureExt;
-use crate::theme::{Tokens, semibold};
+use crate::theme::Tokens;
 
 /// Number styles a level can have: OOXML name and a sample.
 const STYLES: [(&str, &str); 10] = [
@@ -169,7 +169,7 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
     }
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
     };
     crate::rtl::horizontal_top(ui, |ui| {
         crate::rtl::vertical(ui, |ui| {
@@ -536,7 +536,7 @@ pub fn track_options(app: &mut WordApp, ui: &mut Ui, f: &mut TrackForm) -> bool 
     let theme = app.session.doc.settings.theme_colors.clone();
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
     };
     heading(ui, "Show");
     crate::rtl::Table::new("tco_show").columns(2).spacing(vec2(16.0, 4.0)).show(ui, |t| {

@@ -224,7 +224,7 @@ fn font_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         });
     });
     ui.separator();
-    ui.label(egui::RichText::new(tl!("Effects")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Effects")).font(omacraft_ui::Role::Section.font()));
     crate::rtl::Table::new("fx").columns(2).show(ui, |t| {
         t.row(|r| {
             r.cell(|ui| ui.checkbox(bold, tl!("Bold")));
@@ -290,7 +290,7 @@ fn paragraph_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     ui.add_space(6.0);
     match *tab {
         0 => {
-            ui.label(egui::RichText::new(tl!("General")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("General")).font(omacraft_ui::Role::Section.font()));
             ui.horizontal(|ui| {
                 ui.label(tl!("Direction:"));
                 // Neither while the selected paragraphs differ.
@@ -316,7 +316,7 @@ fn paragraph_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 });
                 combo.response.labelled_by(align_label.id);
             });
-            ui.label(egui::RichText::new(tl!("Indentation")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Indentation")).font(omacraft_ui::Role::Section.font()));
             // Mirrored indents are the inside and outside ones (they swap on even pages).
             let (l_label, r_label) = if opts[0] { ("Inside:", "Outside:") } else { ("Left:", "Right:") };
             crate::rtl::Table::new("ind").columns(4).show(ui, |t| {
@@ -332,7 +332,7 @@ fn paragraph_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 });
             });
             para_check(ui, &mut opts[0], tl!("Mirror indents"), "mirrorIndents", mixed);
-            ui.label(egui::RichText::new(tl!("Spacing")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Spacing")).font(omacraft_ui::Role::Section.font()));
             crate::rtl::Table::new("sp").columns(4).show(ui, |t| {
                 t.row(|r| {
                     let before_label = r.cell(|ui| ui.label(tl!("Before:")));
@@ -348,25 +348,25 @@ fn paragraph_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             para_check(ui, &mut opts[1], tl!("Don't add space between paragraphs of the same style"), "contextualSpacing", mixed);
         }
         1 => {
-            ui.label(egui::RichText::new(tl!("Line and Page Breaks")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Line and Page Breaks")).font(omacraft_ui::Role::Section.font()));
             para_check(ui, widow, tl!("Widow/Orphan control"), "widowControl", mixed);
             para_check(ui, keep_next, tl!("Keep with next"), "keepNext", mixed);
             para_check(ui, keep_lines, tl!("Keep lines together"), "keepLines", mixed);
             para_check(ui, page_break, tl!("Page break before"), "pageBreakBefore", mixed);
-            ui.label(egui::RichText::new(tl!("Formatting exceptions")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Formatting exceptions")).font(omacraft_ui::Role::Section.font()));
             para_check(ui, &mut opts[2], tl!("Suppress line numbers"), "suppressLineNumbers", mixed);
             para_check(ui, &mut opts[3], tl!("Don't hyphenate"), "suppressHyphens", mixed);
         }
         _ => {
             let [kinsoku, word_wrap, overflow, top_line, de, dn] = asian;
-            ui.label(egui::RichText::new(tl!("Line breaking")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Line breaking")).font(omacraft_ui::Role::Section.font()));
             para_check(ui, kinsoku, tl!("Apply Asian line-breaking rules (kinsoku)"), "kinsoku", mixed);
             // The model's flag is "wrap whole words"; the box offers the opposite.
             let mut mid_word = !*word_wrap;
             para_check(ui, &mut mid_word, tl!("Allow Latin text to wrap in the middle of a word"), "wordWrap", mixed);
             *word_wrap = !mid_word;
             para_check(ui, overflow, tl!("Allow hanging punctuation"), "overflowPunct", mixed);
-            ui.label(egui::RichText::new(tl!("Character Spacing")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Character Spacing")).font(omacraft_ui::Role::Section.font()));
             para_check(ui, top_line, tl!("Compress punctuation at the start of a line"), "topLinePunct", mixed);
             para_check(ui, de, tl!("Add space between Asian and Latin text"), "autoSpaceDE", mixed);
             para_check(ui, dn, tl!("Add space between Asian text and numbers"), "autoSpaceDN", mixed);
@@ -508,7 +508,7 @@ fn enclose_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     let Dialog::Enclose { style, text, shape } = d else {
         return false;
     };
-    ui.label(egui::RichText::new(tl!("Style")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Style")).font(omacraft_ui::Role::Section.font()));
     ui.horizontal(|ui| {
         for (v, l) in [("none", "None"), ("shrink", "Shrink text"), ("enlarge", "Enlarge symbol")] {
             ui.radio_value(style, v.to_string(), tl!(l));
@@ -616,7 +616,7 @@ fn page_setup_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     else {
         return false;
     };
-    ui.label(egui::RichText::new(tl!("Margins")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Margins")).font(omacraft_ui::Role::Section.font()));
     crate::rtl::Table::new("ps").columns(4).show(ui, |t| {
         t.row(|r| {
             let top_label = r.cell(|ui| ui.label(tl!("Top:")));
@@ -631,15 +631,15 @@ fn page_setup_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             r.cell(|ui| ui.add(margin(right)).labelled_by(right_label.id));
         });
     });
-    ui.label(egui::RichText::new(tl!("Orientation")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Orientation")).font(omacraft_ui::Role::Section.font()));
     ui.horizontal(|ui| {
         ui.radio_value(landscape, false, tl!("Portrait"));
         ui.radio_value(landscape, true, tl!("Landscape"));
     });
-    ui.label(egui::RichText::new(tl!("Pages")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Pages")).font(omacraft_ui::Role::Section.font()));
     ui.checkbox(mirror, tl!("Mirror margins"));
     page_paper_group(ui, paper, landscape, paper_custom);
-    ui.label(egui::RichText::new(tl!("Document Grid")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Document Grid")).font(omacraft_ui::Role::Section.font()));
     ui.horizontal_wrapped(|ui| {
         ui.radio_value(&mut grid.0, 0, tl!("No grid"));
         ui.radio_value(&mut grid.0, 1, tl!("Lines only"));
@@ -664,7 +664,7 @@ fn page_setup_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     }
     page_valign_combo(ui, valign);
     // Word's Page Setup › Layout: a title page without the page number (#1230).
-    ui.label(egui::RichText::new(tl!("Headers and footers")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Headers and footers")).font(omacraft_ui::Role::Section.font()));
     ui.checkbox(odd_even, tl!("Different Odd & Even Pages"));
     ui.checkbox(first_page, tl!("Different First Page"));
     let (mut ok, cancel) = buttons(ui, tl!("OK"));
@@ -756,7 +756,7 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 }
                 let headings = targets.as_ref().and_then(|t| t.get("headings")).and_then(Value::as_array).cloned().unwrap_or_default();
                 if !headings.is_empty() {
-                    ui.label(egui::RichText::new(tl!("Headings")).font(semibold(12.5)));
+                    ui.label(egui::RichText::new(tl!("Headings")).font(omacraft_ui::Role::Section.font()));
                 }
                 for h in &headings {
                     let (block, level) = (h.get("block").cloned().unwrap_or_default(), h.get("level").and_then(Value::as_u64).unwrap_or(1));
@@ -770,7 +770,7 @@ fn link_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 }
                 let marks = targets.as_ref().and_then(|t| t.get("bookmarks")).and_then(Value::as_array).cloned().unwrap_or_default();
                 if !marks.is_empty() {
-                    ui.label(egui::RichText::new(tl!("Bookmarks")).font(semibold(12.5)));
+                    ui.label(egui::RichText::new(tl!("Bookmarks")).font(omacraft_ui::Role::Section.font()));
                 }
                 for m in marks.iter().filter_map(Value::as_str) {
                     ui.horizontal(|ui| {
@@ -1067,7 +1067,7 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     let reg = app.session.registry.clone();
     // An empty box suggests a few common commands, as Word's Search does.
     let mut hits: Vec<&wordcraft_engine::CommandSpec> = if query.trim().is_empty() {
-        ui.label(egui::RichText::new(tl!("Suggested")).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!("Suggested")).font(omacraft_ui::Role::Section.font()));
         SEARCH_SUGGESTIONS.iter().filter_map(|id| reg.get(id)).collect()
     } else {
         reg.all().iter().filter(|c| !NOT_IN_SEARCH.contains(&c.id) && command_matches(c, query)).collect()
@@ -1102,7 +1102,7 @@ fn paste_special_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool 
     let Dialog::PasteSpecial { formats, choice, payload, note } = d else {
         return false;
     };
-    ui.label(egui::RichText::new(tl!("Paste as:")).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!("Paste as:")).font(omacraft_ui::Role::Section.font()));
     if formats.is_empty() {
         // The engine's wording, sentence-cased; the format names in it aren't translated.
         let text = if note.is_empty() || note == "the clipboard is empty" {
@@ -1119,7 +1119,7 @@ fn paste_special_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool 
     }
     if let Some(f) = formats.get(*choice) {
         ui.add_space(6.0);
-        ui.label(egui::RichText::new(tl!("Result")).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!("Result")).font(omacraft_ui::Role::Section.font()));
         let hint = match f.as_str() {
             "formatted" => "Keeps the fonts and formatting of the copied text.",
             "rtf" => "Reads the clipboard's rich text and keeps its formatting.",
@@ -1153,7 +1153,7 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
         2 => crate::credits::models_ui(ui),
         3 => crate::language_packs::about_tab(ui),
         _ => {
-            ui.label(egui::RichText::new(tl!("OmaWord")).font(semibold(22.0)));
+            ui.label(egui::RichText::new(tl!("OmaWord")).font(omacraft_ui::Role::DisplayL.font()));
             let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
             ui.label(crate::i18n::fmt(
                 tl!("Version {version} ({build})"),

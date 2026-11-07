@@ -1,12 +1,11 @@
-use super::{FontFace, Snapshot, files};
-use std::io::Read;
+use super::{Snapshot, files};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex, mpsc};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const POLL: Duration = Duration::from_secs(1);
-const FONT_LIMIT: usize = 32 * 1024 * 1024;
+/// System fonts are looked up again every this many polls (and when the palette changes).
+const FONT_POLLS: u8 = 10;
 
 pub(super) struct Worker {
     latest: Arc<Mutex<Snapshot>>,
@@ -34,14 +33,13 @@ impl Worker {
                     if let Some(palette) = files::read_palette(&roots, &mut selected) {
                         next.palette = Some(palette);
                     }
-                    if next.palette.is_some() && (font_poll == 0 || next.palette != last.palette) {
-                        // Resolve the user's fontconfig monospace aliases, including their chosen Nerd Font.
-                        if let Some(normal) = font_face("monospace") {
-                            let bold = font_face("monospace:weight=bold").unwrap_or_else(|| normal.clone());
-                            next.fonts = Some((normal, bold));
-                        }
+                    if font_poll == 0 || next.palette != last.palette {
+                        // The UI stack (GTK font, Adwaita Sans, Cantarell, Noto Sans; exact family
+                        // matches only) and the user's monospace alias. Bounded subprocesses; the
+                        // snapshot comparison below decides whether the UI re-applies its fonts.
+                        next.system_fonts = Some(super::validated(omacraft_ui::SystemFaces::detect()));
                     }
-                    font_poll = (font_poll + 1) % 10;
+                    font_poll = (font_poll + 1) % FONT_POLLS;
                     if next != last {
                         if let Ok(mut value) = shared.lock() {
                             *value = next.clone();
@@ -67,47 +65,4 @@ impl Drop for Worker {
     fn drop(&mut self) {
         let _ = self.stop.try_send(());
     }
-}
-
-/// No shell, no inherited stdout, no unbounded wait. A stuck fontconfig helper is killed.
-#[allow(clippy::disallowed_methods)] // This entire module is Linux-only; the native subprocess deadline cannot run on wasm.
-fn font_face(pattern: &str) -> Option<FontFace> {
-    let mut child = Command::new("fc-match")
-        .args(["--format", "%{file}\n%{index}\n", pattern])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let deadline = Instant::now() + Duration::from_secs(2);
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) if status.success() => break,
-            Ok(Some(_)) => return None,
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
-        }
-    }
-    let mut bytes = Vec::new();
-    child.stdout.take()?.take(8193).read_to_end(&mut bytes).ok()?;
-    if bytes.len() > 8192 {
-        return None;
-    }
-    let text = std::str::from_utf8(&bytes).ok()?;
-    let mut lines = text.lines();
-    let path = PathBuf::from(lines.next()?);
-    if !path.is_absolute() {
-        return None;
-    }
-    let index = lines.next()?.parse().ok()?;
-    let bytes = files::read_bounded(&path, FONT_LIMIT)?;
-    use skrifa::MetadataProvider;
-    if !skrifa::FontRef::from_index(&bytes, index).is_ok_and(|font| font.charmap().has_map()) {
-        return None;
-    }
-    Some(FontFace { bytes: Arc::new(bytes), index })
 }

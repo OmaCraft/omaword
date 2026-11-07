@@ -12,7 +12,7 @@ use wordcraft_engine::Password;
 use wordcraft_engine::cmd::tools::AutoCorrectPrefs;
 
 use crate::WordApp;
-use crate::theme::{Tokens, semibold};
+use crate::theme::Tokens;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "form", rename_all = "camelCase")]
@@ -86,7 +86,7 @@ fn buttons(ui: &mut Ui, ok_enabled: bool) -> (bool, bool) {
 
 fn heading(ui: &mut Ui, s: &str) {
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
 }
 
 fn error(ui: &mut Ui, message: &str) {

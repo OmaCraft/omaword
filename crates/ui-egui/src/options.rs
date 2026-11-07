@@ -154,7 +154,7 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
                 } else if resp.hovered() {
                     ui.painter().rect_filled(r, 4.0, t.hover);
                 }
-                let font = if active { semibold(14.0) } else { crate::theme::regular(14.0) };
+                let font = if active { omacraft_ui::Role::Section.font() } else { omacraft_ui::Role::Body.font() };
                 // Long translations stay inside the row; WidgetInfo above keeps the full name.
                 ui.painter().with_clip_rect(r).text(
                     egui::pos2(crate::rtl::lead_x(rtl, r, 12.0), r.center().y),
@@ -196,12 +196,12 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
 
 fn section(ui: &mut Ui, title: &str) {
     ui.add_space(6.0);
-    ui.label(RichText::new(tl!(title)).font(semibold(15.0)));
+    ui.label(RichText::new(tl!(title)).font(omacraft_ui::Role::Section.font()));
     ui.add_space(2.0);
 }
 
 fn note(ui: &mut Ui, text: &str) {
-    ui.label(RichText::new(tl!(text)).small().weak());
+    ui.label(RichText::new(tl!(text)).font(omacraft_ui::Role::Caption.font()).weak());
 }
 
 /// Change settings through `file.options` (the command agents use).
@@ -225,6 +225,9 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Interface");
     theme_picker(app, ui);
     interface_size_picker(app, ui);
+    ui.checkbox(&mut app.ui.use_system_font, tl!("Use system font")).on_hover_text(tl!(
+        "Draw menus, dialogs and settings in your desktop's interface font instead of Inter. Headings, code and documents are unchanged."
+    ));
     ui.checkbox(&mut app.ui.mini_toolbar, tl!("Show the mini toolbar when text is selected"));
     let mut dark_page = app.session.view.dark_mode;
     if ui

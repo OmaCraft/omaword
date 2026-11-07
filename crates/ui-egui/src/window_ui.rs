@@ -291,6 +291,7 @@ impl WordApp {
             options_pane: _,
             recent_count: _,
             mini_toolbar: _,
+            use_system_font: _,
             alignment_guides: _,
             start_screen: _,
             print_backgrounds: _,

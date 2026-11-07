@@ -59,17 +59,12 @@ pub(crate) fn blend(a: Color32, b: Color32, amount: f32) -> Color32 {
     Color32::from_rgb(mix(a.r(), b.r()), mix(a.g(), b.g()), mix(a.b(), b.b()))
 }
 
-/// Validated font bytes are discovered/read by the worker, never by an egui frame.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct FontFace {
-    pub bytes: std::sync::Arc<Vec<u8>>,
-    pub index: u32,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Desktop appearance as the worker last saw it. System fonts are found by `omacraft-ui`'s
+/// resolver on the worker, never by an egui frame; `None` until the first detection finishes.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Snapshot {
     pub palette: Option<Palette>,
-    pub fonts: Option<(FontFace, FontFace)>,
+    pub system_fonts: Option<omacraft_ui::SystemFaces>,
 }
 
 /// Owns a bounded latest-value slot, so a sleeping/minimized UI cannot accumulate updates.
@@ -79,12 +74,15 @@ pub(crate) struct Watcher {
     last: Snapshot,
     #[cfg(target_os = "linux")]
     worker: Option<native::Worker>,
+    /// macOS and Windows have no theme files to poll: one background detection of the system faces.
+    #[cfg(not(any(target_os = "linux", target_arch = "wasm32")))]
+    detect: Option<std::sync::mpsc::Receiver<omacraft_ui::SystemFaces>>,
 }
 
 impl Watcher {
     #[cfg(test)]
     pub(crate) fn fixed(palette: Palette) -> Self {
-        Self { last: Snapshot { palette: Some(palette), fonts: None }, ..Self::default() }
+        Self { last: Snapshot { palette: Some(palette), system_fonts: None }, ..Self::default() }
     }
 
     pub fn start() -> Self {
@@ -107,10 +105,43 @@ impl Watcher {
                 self.last = snapshot;
             }
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_arch = "wasm32")))]
+        if self.enabled {
+            if self.detect.is_none() {
+                let (send, receive) = std::sync::mpsc::sync_channel(1);
+                let wake = ctx.clone();
+                let spawned = std::thread::Builder::new().name("omaword-system-fonts".into()).spawn(move || {
+                    let _ = send.send(validated(omacraft_ui::SystemFaces::detect()));
+                    wake.request_repaint();
+                });
+                if spawned.is_ok() {
+                    self.detect = Some(receive);
+                } else {
+                    self.enabled = false;
+                }
+            }
+            if let Some(faces) = self.detect.as_ref().and_then(|r| r.try_recv().ok()) {
+                self.last.system_fonts = Some(faces);
+                // One detection per run; the receiver stays so no second thread is spawned.
+                self.enabled = false;
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
         let _ = (ctx, self.enabled);
         self.last.clone()
     }
+}
+
+/// Keep only faces that parse and have a character map: a damaged system font file must never
+/// reach egui, which would fail to load it in the middle of a frame.
+#[cfg(any(not(target_arch = "wasm32"), test))]
+pub(crate) fn validated(mut faces: omacraft_ui::SystemFaces) -> omacraft_ui::SystemFaces {
+    use skrifa::MetadataProvider;
+    let ok = |f: &omacraft_ui::fonts::SystemFace| skrifa::FontRef::from_index(&f.data, f.index).is_ok_and(|font| font.charmap().has_map());
+    faces.ui.retain(ok);
+    faces.ui_bold.retain(ok);
+    faces.mono = faces.mono.filter(ok);
+    faces
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -132,6 +163,26 @@ mod tests {
         assert_eq!(v4.background, Color32::from_rgb(0x10, 0x10, 0x20));
         assert!(!Palette::parse("background='#000000'\nforeground='#ffffff'", true).unwrap().dark);
         assert!(Palette::parse("mode='dark'\nbackground='#ffffff'\nforeground='#000000'", true).unwrap().dark);
+    }
+
+    /// A damaged system font file is dropped before it can reach egui.
+    #[test]
+    fn unreadable_system_faces_are_dropped() {
+        let face = |data: Vec<u8>| omacraft_ui::fonts::SystemFace {
+            family: "Adwaita Sans".into(),
+            path: "/fonts/a.ttf".into(),
+            index: 0,
+            data: std::sync::Arc::new(data),
+        };
+        let good = face(omacraft_ui::fonts::INTER_REGULAR.to_vec());
+        let faces = validated(omacraft_ui::SystemFaces {
+            ui: vec![face(b"not a font".to_vec()), good.clone()],
+            ui_bold: vec![face(Vec::new())],
+            mono: Some(face(vec![0; 64])),
+        });
+        assert_eq!(faces.ui, vec![good]);
+        assert!(faces.ui_bold.is_empty());
+        assert!(faces.mono.is_none());
     }
 
     #[test]

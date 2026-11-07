@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 use crate::WordApp;
 use crate::options::MeasureExt;
-use crate::theme::{Tokens, regular, semibold};
+use crate::theme::{Tokens, regular};
 
 mod columns;
 mod field;

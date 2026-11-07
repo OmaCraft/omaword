@@ -8,7 +8,6 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::WordApp;
-use crate::theme::semibold;
 
 /// Number formats notes offer: OOXML name and a sample (not translated). The Format Page Numbers
 /// dialog offers the same list (#1113).
@@ -82,7 +81,7 @@ fn choice(ui: &mut Ui, id: &str, value: &mut String, options: &[(&str, &str)], t
 pub fn note_options(app: &mut WordApp, ui: &mut Ui, f: &mut NoteForm) -> bool {
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
     };
     heading(ui, "Location");
     let mut convert = None;

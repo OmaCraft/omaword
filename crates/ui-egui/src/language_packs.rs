@@ -538,7 +538,7 @@ pub(crate) fn your_languages_section(app: &mut WordApp, ui: &mut Ui) {
     // Language names include Arabic and other scripts; ask for a system Arabic face when none is embedded.
     app.want_system_arabic = true;
     let t = Tokens::get(ui.ctx());
-    ui.label(RichText::new(tl!("Your languages")).font(semibold(15.0)));
+    ui.label(RichText::new(tl!("Your languages")).font(omacraft_ui::Role::Section.font()));
     ui.add_space(2.0);
     ui.label(
         RichText::new(tl!(
@@ -875,12 +875,11 @@ pub(crate) fn about_tab(ui: &mut Ui) {
         .auto_shrink([false, false])
         .show(ui, |ui| {
             for (title, text) in texts.iter() {
-                egui::CollapsingHeader::new(RichText::new(title.as_str()).font(semibold(13.0))).id_salt(("language_data", title.as_str())).show(
-                    ui,
-                    |ui| {
+                egui::CollapsingHeader::new(RichText::new(title.as_str()).font(omacraft_ui::Role::Section.font()))
+                    .id_salt(("language_data", title.as_str()))
+                    .show(ui, |ui| {
                         ui.add(egui::Label::new(RichText::new(text).small().monospace()).wrap());
-                    },
-                );
+                    });
             }
         });
 }

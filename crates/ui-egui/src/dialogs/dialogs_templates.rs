@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use crate::WordApp;
 use crate::dialogs::{Dialog, buttons};
 use crate::file_dialogs::{AfterPick, FileDialogRequest};
-use crate::theme::{Tokens, semibold};
+use crate::theme::Tokens;
 
 /// The Templates and Add-ins dialog's fields.
 #[derive(Clone, Debug, Serialize)]
@@ -67,7 +67,7 @@ pub fn templates(app: &mut WordApp, ui: &mut Ui, f: &mut TemplatesForm) -> bool 
     if let Some(p) = app.dialog_pick.take() {
         f.path = p;
     }
-    let label = ui.label(egui::RichText::new(tl!("Document template:")).font(semibold(12.5)));
+    let label = ui.label(egui::RichText::new(tl!("Document template:")).font(omacraft_ui::Role::Section.font()));
     ui.horizontal(|ui| {
         ui.add(egui::TextEdit::singleline(&mut f.path).desired_width(300.0)).labelled_by(label.id);
         if ui.add_enabled(can_pick(app), egui::Button::new(tl!("Attach…"))).clicked() {
@@ -183,7 +183,7 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
     let left_builtin = mine.iter().find(|x| s(x, "id") == f.left).is_none_or(|x| x.get("builtIn").and_then(Value::as_bool).unwrap_or(true));
     crate::rtl::horizontal_top(ui, |ui| {
         crate::rtl::vertical(ui, |ui| {
-            ui.label(egui::RichText::new(tl!("Document")).font(semibold(12.5)));
+            ui.label(egui::RichText::new(tl!("Document")).font(omacraft_ui::Role::Section.font()));
             list_frame(ui, "organizer_mine", &mut |ui| {
                 for st in &mine {
                     let id = s(st, "id");
@@ -205,7 +205,7 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
         });
         crate::rtl::vertical(ui, |ui| {
             let name = std::path::Path::new(&f.file).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "—".into());
-            ui.label(egui::RichText::new(name).font(semibold(12.5))).on_hover_text(f.file.as_str());
+            ui.label(egui::RichText::new(name).font(omacraft_ui::Role::Section.font())).on_hover_text(f.file.as_str());
             list_frame(ui, "organizer_other", &mut |ui| {
                 for (n, ty) in &f.other {
                     if ui.selectable_label(f.right == *n, format!("{}  {n}", glyph(ty))).clicked() {

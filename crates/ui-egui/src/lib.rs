@@ -262,6 +262,9 @@ pub struct UiState {
     pub recent_count: usize,
     /// File › Options › General: show the mini toolbar over a selection.
     pub mini_toolbar: bool,
+    /// File › Options › General (OmaCraft): draw the interface in the system's UI font instead of
+    /// the bundled Inter. Off by default; headings, code and documents are unchanged.
+    pub use_system_font: bool,
     /// File › Options › Advanced › Editing: moving a picture or shape snaps it to alignment
     /// guides (on by default; Alt moves freely).
     pub alignment_guides: bool,
@@ -343,6 +346,7 @@ impl Default for UiState {
             options_pane: "general".into(),
             recent_count: 12,
             mini_toolbar: true,
+            use_system_font: false,
             alignment_guides: true,
             start_screen: true,
             print_backgrounds: false,

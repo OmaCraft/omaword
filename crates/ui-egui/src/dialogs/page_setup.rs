@@ -1,4 +1,4 @@
-use super::{MeasureExt, Ui, Value, WordApp, json, semibold};
+use super::{MeasureExt, Ui, Value, WordApp, json};
 
 /// Labels of Page Setup's paper size (#1433), in one place in case Word's wording differs.
 pub(crate) const PAPER_LABELS: PaperLabels =
@@ -86,7 +86,7 @@ pub(super) fn page_paper_group(ui: &mut Ui, paper: &mut (f32, f32), landscape: &
     let unit = crate::options::unit();
     let ppu = unit.pt_per_unit();
     let l = &PAPER_LABELS;
-    ui.label(egui::RichText::new(tl!(l.group)).font(semibold(12.5)));
+    ui.label(egui::RichText::new(tl!(l.group)).font(omacraft_ui::Role::Section.font()));
     ui.horizontal(|ui| {
         let label = ui.label(tl!(l.size));
         let entry = paper_entry(*paper).filter(|_| !*custom);

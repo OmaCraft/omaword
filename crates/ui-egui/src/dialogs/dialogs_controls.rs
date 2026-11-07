@@ -7,7 +7,6 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::WordApp;
-use crate::theme::semibold;
 
 /// One list entry being edited.
 #[derive(Clone, Debug, Default, Serialize)]
@@ -185,7 +184,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut ControlForm) -> bool {
 
 fn entries(ui: &mut Ui, f: &mut ControlForm) {
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(tl!("List entries")).font(semibold(12.0)));
+    ui.label(egui::RichText::new(tl!("List entries")).font(omacraft_ui::Role::Section.font()));
     let mut remove = None;
     crate::rtl::Table::new("cc_entries").columns(3).spacing(egui::vec2(6.0, 4.0)).show(ui, |t| {
         t.row(|r| {

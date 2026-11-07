@@ -9,7 +9,7 @@ use serde_json::json;
 use wordcraft_engine::keymap::normalize;
 
 use crate::WordApp;
-use crate::theme::{Tokens, semibold};
+use crate::theme::Tokens;
 use crate::widgets::key_text;
 
 /// The category listing every command.
@@ -187,7 +187,7 @@ pub fn customize_keyboard(app: &mut WordApp, ui: &mut Ui, f: &mut KeyboardForm) 
     let reg = app.session.registry.clone();
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
     };
     let (left, right) = (170.0, 300.0);
 

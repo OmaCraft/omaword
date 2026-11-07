@@ -1,5 +1,5 @@
 use super::chrome::buttons;
-use super::{MeasureExt, Sense, Serialize, Tokens, Ui, Value, WordApp, json, semibold, vec2};
+use super::{MeasureExt, Sense, Serialize, Tokens, Ui, Value, WordApp, json, vec2};
 
 /// The Custom tab of File › Info › Properties › Advanced Properties (#2982): the document's
 /// custom properties, edited as a working copy. OK sends the whole difference from what the
@@ -387,7 +387,7 @@ pub(super) fn table_properties(ui: &mut Ui, f: &mut TableForm) {
     }
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
-        ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
+        ui.label(egui::RichText::new(tl!(s)).font(omacraft_ui::Role::Section.font()));
     };
     heading(ui, "Table");
     crate::rtl::Table::new("tp_table").columns(2).spacing(vec2(10.0, 6.0)).show(ui, |t| {

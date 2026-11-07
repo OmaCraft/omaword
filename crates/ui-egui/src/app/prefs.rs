@@ -106,7 +106,12 @@ impl WordApp {
     /// Font activation belongs to a real UI pass, never a hidden logic tick carrying stale input.
     /// This pass consumes the one-frame font gate immediately; the next input frame remains live.
     pub(super) fn apply_omarchy_fonts(&mut self, ctx: &egui::Context) {
-        let palette = (self.ui.theme == theme::Appearance::System).then_some(self.omarchy_snapshot.palette).flatten();
+        // "Use system font" (default off) and the faces the worker found; independent of the
+        // palette, and chrome only: the system mono is for code, never for menus or dialogs.
+        let chrome = theme::ChromeFonts {
+            options: omacraft_ui::FontOptions { use_system_font: self.ui.use_system_font },
+            system: self.omarchy_snapshot.system_fonts.clone().unwrap_or_default(),
+        };
         let idle = self.fonts_frames >= 2
             && !self.synthetic_pending
             && self.synthetic.is_empty()
@@ -114,7 +119,7 @@ impl WordApp {
             && self.dialog.is_none()
             && !ctx.text_edit_focused()
             && ctx.input(|i| i.events.is_empty() && !i.pointer.any_down());
-        if idle && theme::refresh_omarchy_fonts(ctx, palette.and(self.omarchy_snapshot.fonts.clone())) {
+        if idle && theme::refresh_chrome_fonts(ctx, chrome) {
             self.fonts_frames = 1;
             ctx.request_repaint();
         }
@@ -227,10 +232,10 @@ mod omarchy_tests {
             frame(&mut app, vec![]);
         }
         assert!(app.fonts_frames >= 2);
-        let base = theme::font_definitions(false, false);
-        let data = base.font_data.values().next().unwrap();
-        let face = crate::omarchy::FontFace { bytes: std::sync::Arc::new(data.bytes().to_vec()), index: data.index };
-        assert!(theme::refresh_omarchy_fonts(&ctx, Some((face.clone(), face))));
+        assert!(theme::refresh_chrome_fonts(
+            &ctx,
+            theme::ChromeFonts { options: omacraft_ui::FontOptions { use_system_font: true }, ..Default::default() }
+        ));
         // A hidden logic tick must not arm a future blank paint gate with stale input.
         let _ = ctx.run_logic(&egui::RawInput::default(), |ctx| app.logic(ctx));
         assert!(app.fonts_frames >= 2);

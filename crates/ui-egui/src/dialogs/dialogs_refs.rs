@@ -16,7 +16,7 @@ use crate::WordApp;
 use crate::dialogs::{Dialog, buttons};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::file_dialogs::{AfterPick, Asked, FileDialogRequest};
-use crate::theme::{Tokens, semibold};
+use crate::theme::Tokens;
 
 mod caption;
 mod common;

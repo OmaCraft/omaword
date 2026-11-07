@@ -1,6 +1,6 @@
 use super::margins::{MarginEdge, margin_handle};
 use super::pages::page_screen_scale;
-use super::{DocLayout, Pos2, Rect, Sense, Stroke, Tokens, Ui, WordApp, json, pos2, regular, vec2};
+use super::{DocLayout, Pos2, Rect, Sense, Stroke, Tokens, Ui, WordApp, json, pos2, vec2};
 
 /// Horizontal and vertical rulers for the caret's page and paragraph. Each spans that page's
 /// rect on screen at the page's own scale and is clipped to its strip, whatever the layout
@@ -263,7 +263,7 @@ pub(super) fn ruler_marks(origin: f32, text: f32, width: f32, (unit, div, step):
 fn ruler_mark(p: &egui::Painter, at: Pos2, mark: RulerMark, horizontal: bool, keep_clear: &[Rect], t: &Tokens) {
     let len = match mark {
         RulerMark::Label(n) => {
-            let galley = p.layout_no_wrap(n.to_string(), regular(9.5), t.ruler_tick);
+            let galley = p.layout_no_wrap(n.to_string(), crate::theme::numeric(9.5), t.ruler_tick);
             let r = Rect::from_center_size(at, galley.size());
             if !keep_clear.iter().any(|o| o.intersects(r)) {
                 p.galley(r.min, galley, t.ruler_tick);

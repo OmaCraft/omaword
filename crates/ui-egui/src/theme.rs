@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 mod omarchy;
 pub use omarchy::set_omarchy_palette;
-pub(crate) use omarchy::{refresh_omarchy_fonts, with_omarchy_fonts};
+pub(crate) use omarchy::{ChromeFonts, refresh_chrome_fonts, with_omarchy_fonts};
 
 use egui::{Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Rect, Stroke, Visuals};
 
@@ -523,6 +523,9 @@ pub fn add_fallback_faces(fonts: &mut FontDefinitions, faces: &[Arc<wordcraft_fo
             FontFamily::Name("omaword-ui".into()),
             FontFamily::Name("omaword-medium".into()),
             FontFamily::Name("omaword-semibold".into()),
+            omacraft_ui::Face::UiStrong.family(),
+            omacraft_ui::Face::Numeric.family(),
+            omacraft_ui::Face::Display.family(),
         ] {
             if let Some(v) = fonts.families.get_mut(&fam) {
                 v.push(name.clone());
@@ -652,16 +655,9 @@ pub fn font_definitions_language_arabic(
         data.index = f.index;
         add_cjk(&mut fonts, format!("system {}", f.family), data);
     }
-    // Keep document fallback families unchanged; only the three chrome aliases are themed.
-    for (family, alias) in [
-        (FontFamily::Proportional, "omaword-ui"),
-        (FontFamily::Name("medium".into()), "omaword-medium"),
-        (FontFamily::Name("semibold".into()), "omaword-semibold"),
-    ] {
-        if let Some(chain) = fonts.families.get(&family).cloned() {
-            fonts.families.insert(FontFamily::Name(alias.into()), chain);
-        }
-    }
+    // OmaCraft chrome (omacraft-ui): bundled Inter first, these faces after it. The live setting
+    // and system faces are applied on top by `with_omarchy_fonts`; document families stay as is.
+    omarchy::chrome_fonts(&mut fonts, &ChromeFonts::default());
     // Symbols and emoji fall back to egui's defaults (kept in the families).
     fonts
 }
@@ -724,6 +720,15 @@ pub fn semibold(size: f32) -> FontId {
 }
 pub fn regular(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("omaword-ui".into()))
+}
+/// Inter Tabular, for numbers that must line up (rulers, page/word counts, zoom): every digit has
+/// the same width. Takes the caller's size where the surface has its own (a ruler's 9.5 pt).
+pub fn numeric(size: f32) -> FontId {
+    FontId::new(size, omacraft_ui::Face::Numeric.family())
+}
+/// A role of the shared OmaCraft type scale (menus, popups, dialogs, settings).
+pub fn role(role: omacraft_ui::Role) -> FontId {
+    role.font()
 }
 /// The UI bold role of the OmaCraft chrome (title, active tab, headings): the Omarchy bold face
 /// when the desktop sets one, else the heaviest bundled interface face (Inter SemiBold).
@@ -861,12 +866,11 @@ pub fn apply(ctx: &egui::Context, appearance: Appearance) {
         s.spacing.button_padding = egui::vec2(8.0, 3.0);
         s.spacing.interact_size = egui::vec2(24.0, 22.0);
         s.spacing.menu_margin = egui::Margin::same(6);
-        // OmaCraft chrome roles (omacraft docs/ui-consistency.md, OmaGrid is the reference).
-        s.text_styles.insert(egui::TextStyle::Body, regular(13.0));
-        s.text_styles.insert(egui::TextStyle::Button, regular(13.0));
-        s.text_styles.insert(egui::TextStyle::Small, regular(11.0));
-        s.text_styles.insert(egui::TextStyle::Heading, bold(18.0));
-        s.text_styles.insert(egui::TextStyle::Monospace, FontId::monospace(12.0));
+        // The shared OmaCraft type scale (omacraft-ui): Body/Button 13, Small 11, Heading bold 18,
+        // Monospace 12 and the named roles. Word keeps its own control heights above.
+        let interact = s.spacing.interact_size;
+        omacraft_ui::scale::apply(s);
+        s.spacing.interact_size = interact;
         s.interaction.tooltip_delay = 0.45;
     });
     ctx.options_mut(|o| {
@@ -1053,7 +1057,8 @@ mod tests {
         let prop = &defs.families[&egui::FontFamily::Proportional];
         assert_eq!(
             prop.iter().take(6).map(String::as_str).collect::<Vec<_>>(),
-            ["Inter", "Ubuntu-Light", "egui-icons", "NotoEmoji-Regular", "emoji-icon-font", "SourceSans"]
+            // OmaCraft: omacraft-ui's Inter (the same file) is the chrome source in place of "Inter".
+            [omacraft_ui::fonts::keys::INTER, "Ubuntu-Light", "egui-icons", "NotoEmoji-Regular", "emoji-icon-font", "SourceSans"]
         );
     }
 

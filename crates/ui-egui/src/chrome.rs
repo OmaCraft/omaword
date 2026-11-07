@@ -4,7 +4,7 @@ use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::{PartKind, StoryRef};
 
-use crate::theme::{Tokens, TypeRung, bold, fit_text, paint_text, regular, semibold, text_width};
+use crate::theme::{Tokens, TypeRung, bold, fit_text, paint_text, regular, text_width};
 use crate::{WordApp, icons};
 
 /// Why the caret's language isn't spell-checked (dictionary unreadable or missing), if it isn't.
@@ -177,7 +177,13 @@ fn undo_list(ui: &mut Ui, app: &mut WordApp) {
                 ui.painter().rect_filled(*r, 0.0, t.selection);
             }
             // Clipped to its row: a long label never runs into the scroll bar.
-            ui.painter_at(r.shrink2(vec2(6.0, 0.0))).text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, label, regular(12.0), t.text);
+            ui.painter_at(r.shrink2(vec2(6.0, 0.0))).text(
+                pos2(r.min.x + 6.0, r.center().y),
+                Align2::LEFT_CENTER,
+                label,
+                omacraft_ui::Role::Menu.font(),
+                t.text,
+            );
         }
     });
     ui.separator();
@@ -189,12 +195,12 @@ fn undo_list(ui: &mut Ui, app: &mut WordApp) {
         if resp.hovered() {
             ui.painter().rect_filled(r, 0.0, t.selection);
         }
-        ui.painter().text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, undo_list_footer(0), regular(12.0), t.text);
+        ui.painter().text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, undo_list_footer(0), omacraft_ui::Role::Menu.font(), t.text);
         if resp.clicked() {
             ui.close();
         }
     } else {
-        ui.vertical_centered(|ui| ui.label(egui::RichText::new(undo_list_footer(n)).font(regular(12.0)).color(t.text)));
+        ui.vertical_centered(|ui| ui.label(egui::RichText::new(undo_list_footer(n)).font(omacraft_ui::Role::Menu.font()).color(t.text)));
     }
     if let Some(i) = clicked {
         crate::widgets::run_from_ribbon(app, "edit.undoTo", json!({"count": i + 1}));
@@ -209,7 +215,7 @@ pub(crate) fn qat_menu_button_id() -> egui::Id {
 
 /// The Quick Access Toolbar's menu: common commands to show or hide, and More Commands…
 pub(crate) fn qat_menu(ui: &mut Ui, app: &mut WordApp) {
-    ui.label(egui::RichText::new(tl!("Customize Quick Access Toolbar")).font(semibold(12.0)));
+    ui.label(egui::RichText::new(tl!("Customize Quick Access Toolbar")).font(omacraft_ui::Role::Section.font()));
     ui.separator();
     for id in QAT_MENU {
         let Some(label) = app.session.registry.get(id).map(|s| tl!(s.label).to_string()) else { continue };
@@ -670,7 +676,8 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                     };
                     // A status item: its text, after an icon when it has one (one click target).
                     let st_icon = |ui: &mut Ui, icon: Option<&str>, s: &str| {
-                        let font = TypeRung::Caption.regular();
+                        // Inter Tabular: page and word counts keep their width as they change.
+                        let font = crate::theme::numeric(TypeRung::Caption.size());
                         let track = TypeRung::Caption.tracking();
                         let w = text_width(ui.painter(), s, &font, track, t.text_dim);
                         let lead = if icon.is_some() { 17.0 } else { 0.0 };
@@ -781,7 +788,7 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                         let reading = app.session.view.read_mode;
                         let z = (if reading { app.session.view.read_zoom } else { app.canvas.scale / crate::canvas::PX_PER_PT } * 100.0).round();
                         let ztxt = format!("{z}%");
-                        let zfont = TypeRung::Caption.regular();
+                        let zfont = crate::theme::numeric(TypeRung::Caption.size());
                         let ztrack = TypeRung::Caption.tracking();
                         let zw = text_width(ui.painter(), &ztxt, &zfont, ztrack, t.text_dim);
                         // A fixed width for three digits plus a small reserve, so the controls to the
