@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-<rect x="8" y="8" width="240" height="240" rx="52" fill="#192F52"/>
-<rect x="16" y="16" width="224" height="224" rx="45" fill="#315C9B"/>
-<rect x="24" y="24" width="208" height="208" rx="38" fill="#192F52"/>
-<rect x="59" y="48" width="144" height="168" rx="18" fill="#101722"/>
-<polygon points="52,42 151,42 194,85 194,202 52,202" fill="#FAF6EB"/>
-<polygon points="151,42 151,85 194,85" fill="#9EC8F9"/>
-<rect x="72" y="102" width="45" height="12" rx="4" fill="#315C9B"/>
-<rect x="72" y="128" width="103" height="8" rx="4" fill="#315C9B"/>
-<rect x="72" y="150" width="103" height="8" rx="4" fill="#315C9B"/>
-<rect x="72" y="172" width="70" height="8" rx="4" fill="#315C9B"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs><linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#343A47"/><stop offset="1" stop-color="#1E222A"/></linearGradient><linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF24"/><stop offset="1" stop-color="#FFFFFF00"/></linearGradient><clipPath id="clip"><path d="M168,48 H772 L976,252 V856 A120,120 0 0 1 856,976 H168 A120,120 0 0 1 48,856 V168 A120,120 0 0 1 168,48 Z"/></clipPath><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5A9BFF"/><stop offset="1" stop-color="#3A7BE8"/></linearGradient></defs><path d="M168,48 H772 L976,252 V856 A120,120 0 0 1 856,976 H168 A120,120 0 0 1 48,856 V168 A120,120 0 0 1 168,48 Z" fill="url(#tile)"/><polygon points="489.2,-234.8 1258.8,534.8 1230.6,563.1 460.9,-206.6" fill="#5A9BFF" clip-path="url(#clip)"/><path d="M168,48 H772 L976,252 V856 A120,120 0 0 1 856,976 H168 A120,120 0 0 1 48,856 V168 A120,120 0 0 1 168,48 Z" fill="none" stroke="url(#edge)" stroke-width="16" clip-path="url(#clip)"/><rect x="232" y="300.0" width="560" height="80" rx="14" fill="url(#g)"/><rect x="232" y="468.0" width="560" height="56" rx="14" fill="url(#g)"/><rect x="232" y="588.0" width="560" height="56" rx="14" fill="url(#g)"/><rect x="232" y="708.0" width="336.0" height="56" rx="14" fill="#3A5682"/></svg>

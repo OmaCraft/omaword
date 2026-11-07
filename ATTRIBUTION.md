@@ -64,15 +64,16 @@ Generated-in-code art is original and has no file to list: the UI icon set (`cra
 
 ## OmaWord original application identity
 
-| `assets/omaword-icon/128/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/16/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/24/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/256/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/32/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/48/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/512/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/64/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/io.github.ustaaa.OmaWord.svg` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
-| `assets/omaword-icon/omaword.ico` | OmaWord contributors | Original icon-family design rendered by `tools/omaword-icon.py` (Fold redesign, 2026-11-05) | MIT |
+| `assets/omaword-icon/128/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/16/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/24/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/256/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/32/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/48/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/512/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/64/io.github.ustaaa.OmaWord.png` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/io.github.ustaaa.OmaWord.svg` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/omaword.ico` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
+| `assets/omaword-icon/omaword.icns` | OmaWord contributors | Original icon-family design rendered by `omacraft/scripts/icon_art.py` (alpha 4 family, 2026-11-07) | MIT |
 
 | craft-i18n Language data (optional build input, not files in this repo): the spelling word lists and hyphenation patterns (`language-data/`: the Moby Hyphenator II list and our patterns for English, `en-extra.txt`, `en-variants.txt`, `ru-extra.txt`, and the hyph-utf8 German, Polish, Portuguese and Italian patterns) | see the Language data section of https://github.com/storytold/craft-i18n/blob/main/ATTRIBUTION.md (authors, upstream sources with SHA-256, licences); moved there from `assets/hyphenation/` and `assets/spelling/` byte for byte | embedded by craft-proof (storytold/craft-libs) only when built with `CRAFT_I18N_DIR`, at the commit in `craft-i18n.rev` (all official releases) | Public Domain / CC0-1.0, MIT, BSD-3-Clause, MIT OR Apache-2.0 (per file; see NOTICE) | Spelling and hyphenation; without it English spelling falls back to an installed Hunspell English or craft-proof's built-in Moby list, and pattern hyphenation is off |
