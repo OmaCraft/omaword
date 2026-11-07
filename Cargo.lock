@@ -3586,7 +3586,7 @@ dependencies = [
 [[package]]
 name = "omacraft-ui"
 version = "0.1.0"
-source = "git+https://github.com/OmaCraft/omacraft-ui?rev=e2cea2b3ebd238ca518871f1bea3f96b8842d98e#e2cea2b3ebd238ca518871f1bea3f96b8842d98e"
+source = "git+https://github.com/OmaCraft/omacraft-ui?rev=655c0a2b99bedf303364406030a1385a35a3d4cd#655c0a2b99bedf303364406030a1385a35a3d4cd"
 dependencies = [
  "egui",
 ]
